@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<android.support.constraint.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    tools:context=".MainActivity">
+
+    <EditText
+        android:id="@+id/editText"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="51dp"
+        android:layout_marginLeft="51dp"
+        android:layout_marginEnd="147dp"
+        android:layout_marginRight="147dp"
+        android:ems="10"
+        android:inputType="textUri"
+        android:text="http://www.example.com/dicomServer"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintHorizontal_bias="0.5"
+        app:layout_constraintStart_toStartOf="parent"
+        tools:layout_editor_absoluteY="135dp" />
+
+    <Button
+        android:id="@+id/sendEchoButton"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Send C-ECHO"
+        app:layout_constraintTop_toBottomOf="@id/editText"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        tools:layout_editor_absoluteX="119dp"
+        tools:layout_editor_absoluteY="278dp" />
+</android.support.constraint.ConstraintLayout>
