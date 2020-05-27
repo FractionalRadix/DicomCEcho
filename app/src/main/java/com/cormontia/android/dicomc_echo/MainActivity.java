@@ -57,6 +57,7 @@ public class MainActivity extends AppCompatActivity {
         );
     }
 
+    //TODO!~ Use the Java Concurrency operations, since AsyncTask is deprecated.
     //TODO?~ There are multiple result values, not just True and False. IT can be timeout, but also server error (server may actively refuse)
     class EchoOperator extends AsyncTask<URL,Integer,Boolean>
     {
