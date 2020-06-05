@@ -1,15 +1,18 @@
 package com.cormontia.android.dicomc_echo;
 
-import android.net.Uri;
 import android.os.AsyncTask;
+import android.os.Handler;
+import android.os.Looper;
+import android.os.Message;
+import android.os.Process;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.Toast;
 
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -19,7 +22,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 //TODO!+
-// (1) Use ONLY List<Byte>.
+// (1) Use ONLY "byte[]", not "List<Byte>".
 //    The constant conversion between List<Byte> and byte[] is a waste.
 // (2) Add checks to the DicomElement constructor, to verify that the length of the content corresponds to that given by the VR.
 //    For this purpose, the VR's with fixed lengths should have their length values added.
@@ -46,7 +49,11 @@ public class MainActivity extends AppCompatActivity {
                         String text = etUriInput.getText().toString();
                         try {
                             URL url = new URL(text);
-                            new EchoOperator().execute(url);
+
+                            //TODO!~ Use ExecutorService.
+                            EchoOperatorRunnable runnable = new EchoOperatorRunnable(new EchoTask(), url);
+                            Thread echoThread = new Thread(runnable);
+                            echoThread.start();
                         }
                         catch (MalformedURLException exc)
                         {
@@ -57,118 +64,163 @@ public class MainActivity extends AppCompatActivity {
         );
     }
 
-    //TODO!~ Use the Java Concurrency operations, since AsyncTask is deprecated.
-    //TODO?~ There are multiple result values, not just True and False. IT can be timeout, but also server error (server may actively refuse)
-    class EchoOperator extends AsyncTask<URL,Integer,Boolean>
+    private Handler handler;
+
+    class EchoTask
     {
-        protected Boolean doInBackground(URL... urls)
+        //TODO!~ Use this to set the result of sending the request. Whether timeout, server refusal, or responding bytes.
+        public void setResult(int n, byte[] result)
         {
-            Log.d("EchoOperator", "Started the doInBackground Task.");
-            URL url = urls[0];
-            Log.d("EchoOperator", "Using the first parameter as the URL.");
-            try {
-                java.net.URLConnection con = url.openConnection();
-                Log.d("EchoOperator", "Created URL Connection");
-                //TODO!+ con.connect();
+            Message msg = handler.obtainMessage(n, result);
+            msg.sendToTarget();
+        }
+    }
 
-                //TODO!+ This is where the real work starts.
-                // We need to build a C-ECHO Request, and sent it to the specified host.
-                // Then we need to wait for the C-ECHO Response (if any), and parse it.
-                // (Not that there is much to parse in a C-ECHO Response...)
-                // If the Response doesn't arrive, or is somehow wrong... we need to report this to the user.
-                // If the Response is received properly, we also need to report this to the user.
-                DicomElement commandGroupLength = new DicomElement(
-                        new DicomTag( (short) 0x0000, (short) 0x0000 ),
-                        DicomVR.VR.UL,
-                        //4,
-                        new byte[] { 56, 0, 0, 0 }
-                );
-                DicomElement affectedServiceClassUID = new DicomElement(
-                        new DicomTag( (short) 0x0000, (short) 0x0002 ),
-                        DicomVR.VR.UI,
-                        //18,
-                        DicomUIDs.byteArrayRepresentation( DicomUIDs.affectedServiceClassUID )
-                );
-                DicomElement commandField = new DicomElement(
-                        new DicomTag( (short) 0x0000, (short) 0x0100 ),
-                        DicomVR.VR.US,
-                        EndianConverter.littleEndian( (short) 0x0030 )
-                        //new byte[] { 0x03, 0x00, 0x00, 0x00 }
-                );
-                DicomElement messageID = new DicomElement(
-                        new DicomTag( (short) 0x0000, (short) 0x0110 ),
-                        DicomVR.VR.US,
-                        new byte[] {(byte) 0xCA, (byte) 0xFE } //TODO!+ Randomize....
-                );
-                DicomElement dataSetType = new DicomElement(
-                        new DicomTag( (short) 0x0000, (short) 0x0800 ),
-                        DicomVR.VR.US,
-                        new byte[] { 0x01, 0x01 }
-                );
+    class EchoOperatorRunnable implements Runnable
+    {
+        private EchoTask echoTask;
+        private URL url;
 
-                Log.d("EchoOperator", "Going to calculate Dicom Element byte sequences...");
-                //TODO!~ Instead of asking the byte representations in order, then adding them...
-                //   find a way to simply loop over the elements and append the bytes.
-                //  It saves a lot of array copying.
-                byte[] commandGroupLengthBytes = commandGroupLength.littleEndianRepresentation( );
-                byte[] affectedServiceClassUIDBytes = affectedServiceClassUID.littleEndianRepresentation( );
-                byte[] commandFieldBytes = commandField.littleEndianRepresentation();
-                byte[] messageIDBytes = messageID.littleEndianRepresentation();
-                byte[] dataSetTypeBytes = dataSetType.littleEndianRepresentation();
-
-                /*
-                //TODO!- FOR DEBUGGING
-                Log.d("EchoOperator", "Going to show resulting byte arrays as hex strings...");
-                logBytesAsHexString( commandGroupLengthBytes );
-                logBytesAsHexString( affectedServiceClassUIDBytes );
-                logBytesAsHexString( commandFieldBytes );
-                logBytesAsHexString( messageIDBytes );
-                logBytesAsHexString( dataSetTypeBytes );
-                */
-
-                byte[] echoRequestBytes = ByteArrayHelper.appendByteArrays( commandGroupLengthBytes, affectedServiceClassUIDBytes, commandFieldBytes, messageIDBytes, dataSetTypeBytes );
-
-                //TODO!- FOR DEBUGGING
-                logBytesAsHexString( echoRequestBytes );
-
-                con.setDoOutput( true );
-                con.setDoInput( true );
-                con.connect( );
-
-                // Try-with-resources require API level 19, currently supported minimum is 14.
-                OutputStream os = con.getOutputStream();
-                os.write( echoRequestBytes, 0, echoRequestBytes.length );
-
-
-                InputStream is = con.getInputStream();
-
-                //TODO!~ NAIVE SOLUTION: Just read all.
-                //   Need some sort of timeout. Or parse while reading.
-
-                int ch;
-                while ( ( ch = is.read( ) ) != -1 )
-                {
-                    Log.i("EchoOperator", byteToHexString( (byte) ch ));
-                }
-
-
-            }
-            catch ( IOException exc )
+        public EchoOperatorRunnable(EchoTask echoTask, URL... urls)
+        {
+            this.echoTask = echoTask;
+            url = urls[0];
+            handler = new Handler(Looper.getMainLooper())
             {
-                //TODO!+
-            }
-            return false;
+                public void handleMessage(Message msg)
+                {
+                    //TODO!~ GEt server response and display it in a field...
+                    Toast.makeText(MainActivity.this, "Result is in", Toast.LENGTH_LONG).show();
+                }
+            };
         }
 
-        //TODO!+ Add a Progress Updater
+        public void run( )
+        {
+            android.os.Process.setThreadPriority(Process.THREAD_PRIORITY_BACKGROUND);
+            Log.d("EchoOperatorRunnable", "Entered the run() method.");
+            sendEchoRequest(url);
+            echoTask.setResult(1, new byte[] {(byte) 0xCA, (byte) 0xFE }); //TODO!~ Put the result here! Whether timeout, refusal or received response bytes.
+        }
+    }
 
+    /**
+     * Send a DICOM C-ECHO request to a specified address.
+     * @param url URL of the DICOM C-ECHO server.
+     */
+    void sendEchoRequest(URL url)
+    {
+        Log.d("DICOM C-ECHO", "Enterend method sendEchoRequest(URL)");
+        try {
+            java.net.URLConnection con = url.openConnection();
+            Log.d("DICOM C-ECHO", "Created URL Connection");
+
+            // Create the C-ECHO request.
+            List<DicomElement> elements = createEchoRequest();
+            byte[] echoRequestBytes = binaryRepresentation(elements);
+
+            //TODO!- FOR DEBUGGING
+            logBytesAsHexString(echoRequestBytes);
+
+            // Send the C-ECHO request to the specified host.
+            con.setDoOutput(true);
+            con.setDoInput(true);
+            con.connect();
+
+            // Try-with-resources requires API level 19, currently supported minimum is 14.
+            OutputStream os = con.getOutputStream();
+            os.write(echoRequestBytes, 0, echoRequestBytes.length);
+
+            // Wait (asynchronously, of course) for the C-ECHO Response (if any).
+            // When the C-ECHO Response is in, parse it.
+            // (Not that there is much to parse in a C-ECHO Response...)
+            // If the Response doesn't arrive, or is somehow wrong... we need to report this to the user.
+            // If the Response is received properly, we also need to report this to the user.
+
+            InputStream is = con.getInputStream();
+
+            //TODO!~ NAIVE SOLUTION: Just read all.
+            //   Need some sort of timeout. Or parse while reading.
+
+            int ch;
+            while ((ch = is.read()) != -1) {
+                Log.i("DICOM C-ECHO", byteToHexString((byte) ch));
+            }
+        }
+        catch (IOException exc)
+        {
+            Log.e("DICOM C-ECHO", "I/O exception in method sendEchoRequest()");
+            //TODO!+
+        }
+    }
+
+    /**
+     * Calculates the binary representation of a list of DICOM elements.
+     * In other words, given a list of elements, returns a byte array to represent these elements, in order.
+     * @param elements A list of DICOM elements.
+     * @return A single byte array, containing the binary (byte array) representation of the subsequent DICOM elements.
+     */
+    private byte[] binaryRepresentation(List<DicomElement> elements)
+    {
+        byte[][] byteRepresentations = new byte[elements.size()][];
+        for (int i = 0; i < elements.size(); i++)
+        {
+            byteRepresentations[i] = elements.get(i).littleEndianRepresentation();
+        }
+        byte[] concatenatedByteRepresentations = ByteArrayHelper.appendByteArrays(byteRepresentations);
+        return concatenatedByteRepresentations;
+    }
+
+    private List<DicomElement> createEchoRequest()
+    {
+        List<DicomElement> res = new ArrayList<>();
+
+        // Command Group Length
+        res.add(new DicomElement(
+                new DicomTag( (short) 0x0000, (short) 0x0000 ),
+                DicomVR.VR.UL,
+                //4,
+                new byte[] { 56, 0, 0, 0 }
+        ));
+
+        // Affected Service Class UID
+        res.add(new DicomElement(
+                new DicomTag( (short) 0x0000, (short) 0x0002 ),
+                DicomVR.VR.UI,
+                //18,
+                DicomUIDs.byteArrayRepresentation( DicomUIDs.affectedServiceClassUID )
+        ));
+
+        // Command Field
+        res.add(new DicomElement(
+                new DicomTag( (short) 0x0000, (short) 0x0100 ),
+                DicomVR.VR.US,
+                EndianConverter.littleEndian( (short) 0x0030 )
+                //new byte[] { 0x03, 0x00, 0x00, 0x00 }
+        ));
+
+        // Message ID
+        res.add(new DicomElement(
+                new DicomTag( (short) 0x0000, (short) 0x0110 ),
+                DicomVR.VR.US,
+                new byte[] {(byte) 0xCA, (byte) 0xFE } //TODO!+ Randomize....
+        ));
+
+        // Data Set Type
+        res.add(new DicomElement(
+                new DicomTag( (short) 0x0000, (short) 0x0800 ),
+                DicomVR.VR.US,
+                new byte[] { 0x01, 0x01 }
+        ));
+
+        return res;
     }
 
     /**
      * Converting byte values to their hexadecimal representations.
      * We used Integer.toHexString first, but when provided with byte values of 128 or higher, it interpreted them as negative values.
-     * @param input
-     * @return
+     * @param input A single byte.
+     * @return Hexadecimal representation of the byte, unsigned.
      */
     private static String byteToHexString( byte input )
     {
