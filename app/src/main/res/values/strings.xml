@@ -1,3 +1,5 @@
 <resources>
     <string name="app_name">Dicom C-Echo</string>
+    <string name="send_c_echo">Send C-ECHO</string>
+    <string name="dicomServerUrl">http://www.example.com/dicomServer</string>
 </resources>

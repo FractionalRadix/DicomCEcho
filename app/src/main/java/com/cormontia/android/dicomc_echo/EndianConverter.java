@@ -30,16 +30,14 @@ public class EndianConverter
     {
         byte lsb = (byte) ( input & 0x00FF );
         byte msb = (byte) ( ( input & 0xFF00 ) >> 8 );
-        byte[] res = new byte[] { lsb, msb };
-        return res;
+        return ( new byte[] { lsb, msb } ) ;
     }
 
     public static byte[] bigEndian( short input )
     {
         byte lsb = (byte) ( input & 0x00FF );
         byte msb = (byte) ( ( input & 0xFF00 ) >> 8 );
-        byte[] res = new byte[] { msb, lsb };
-        return res;
+        return ( new byte[] { msb, lsb } );
     }
 
     public static byte[] littleEndian( int input )
@@ -49,9 +47,7 @@ public class EndianConverter
         byte byte2 = (byte) ( ( input & 0x00FF0000 ) >> 16 );
         byte byte3 = (byte) ( ( input & 0xFF000000 ) >> 24 ); // MSB
 
-        byte[] res = new byte[] { byte0, byte1, byte2, byte3 };
-
-        return res;
+        return ( new byte[] { byte0, byte1, byte2, byte3 } );
     }
 
     public static byte[] bigEndian( int input )
@@ -61,8 +57,6 @@ public class EndianConverter
         byte byte2 = (byte) ( ( input & 0x00FF0000 ) >> 16 );
         byte byte3 = (byte) ( ( input & 0xFF000000 ) >> 24 ); // MSB
 
-        byte[] res = new byte[] { byte3, byte2, byte1, byte0 };
-
-        return res;
+        return ( new byte[] { byte3, byte2, byte1, byte0 } );
     }
 }

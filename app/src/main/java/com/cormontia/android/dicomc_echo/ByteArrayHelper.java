@@ -32,9 +32,8 @@ public class ByteArrayHelper
         {
             if ( array != null )
             {
-                for ( int j = 0; j < array.length; j++ )
-                {
-                    res[i] = array[j];
+                for (byte b : array) {
+                    res[i] = b;
                     i++;
                 }
             }

@@ -36,10 +36,10 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        final EditText etUriInput = (EditText) findViewById(R.id.editText);
+        final EditText etUriInput = findViewById(R.id.editText);
         Log.d("Dicom C-ECHO", "Found EditText.");
 
-        Button btEchoButton = (Button) findViewById(R.id.sendEchoButton);
+        Button btEchoButton = findViewById(R.id.sendEchoButton);
         Log.d("Dicom C-ECHO", "Found Button.");
 
         btEchoButton.setOnClickListener(
@@ -167,8 +167,7 @@ public class MainActivity extends AppCompatActivity {
         {
             byteRepresentations[i] = elements.get(i).littleEndianRepresentation();
         }
-        byte[] concatenatedByteRepresentations = ByteArrayHelper.appendByteArrays(byteRepresentations);
-        return concatenatedByteRepresentations;
+        return ( ByteArrayHelper.appendByteArrays(byteRepresentations) );
     }
 
     private List<DicomElement> createEchoRequest()
@@ -242,16 +241,16 @@ public class MainActivity extends AppCompatActivity {
     private static void logBytesAsHexString( byte[] bytes )
     {
         Log.d("EchoOperator", "About to show " + bytes.length + " bytes...");
-        String aux = "\r\n";
+        StringBuilder aux = new StringBuilder("\r\n");
         for ( int i = 0; i < bytes.length; i++ )
         {
-            aux = aux + " " + byteToHexString( bytes[ i ] );
+            aux.append(" ").append(byteToHexString(bytes[i]));
             if ( ( i + 1 ) % 16 == 0 )
             {
-                aux += "\r\n";
+                aux.append("\r\n");
             }
         }
-        Log.d("EchoOperator", aux );
+        Log.d("EchoOperator", aux.toString());
     }
 
 }

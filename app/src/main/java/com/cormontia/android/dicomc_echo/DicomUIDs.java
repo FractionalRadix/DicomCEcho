@@ -18,10 +18,7 @@ public class DicomUIDs
             //TODO!~ Need to think about how endian-ness affects this.
             // It is VERY naive to just set the last byte to 0. There's a 50% chance it should be the byte BEFORE that.
             byte[] res = new byte[ bytes.length + 1 ];
-            for ( int i = 0; i < bytes.length; i++ )
-            {
-                res[ i ] = bytes[ i ];
-            }
+            System.arraycopy(bytes, 0, res, 0, bytes.length);
             res[ bytes.length ] = 0;
             return res;
         }

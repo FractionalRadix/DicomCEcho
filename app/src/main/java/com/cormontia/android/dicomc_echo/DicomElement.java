@@ -19,22 +19,15 @@ public class DicomElement
         this.dicomTag = dicomTag;
         this.valueRepresentation = valueRepresentation;
         this.contents = new byte[ contents.length ];
-        for ( int i = 0; i < contents.length; i++ )
-        {
-            this.contents[ i ] = contents[ i ];
-        }
+        System.arraycopy(contents, 0, this.contents, 0, contents.length);
     }
-
-    //DicomElement( DicomTag dicomTag, DicomVR.VR valueRepresentation, List<Byte> contents )
-    //{
-    //    this( dicomTag, valueRepresentation, byteListToByteArray( contents ) );
-    //}
 
     //TODO!~ Move to a class for generic helper functions
     /**
      * Convert a List&lt;Byte&gt; to an array of byte.
      * PRE: None of the elements in the list is <code>null</code>.
-     * @param bytes
+     * @param bytes A list of zero or more Byte instances, to be converted into an array of byte.
+     * @return An array of bytes, containing the same bytes as the input list, with the ordering preserved.
      */
     private static byte[] byteListToByteArray( List<Byte> bytes )
     {
@@ -48,27 +41,6 @@ public class DicomElement
         }
         return res;
     }
-
-    //TODO!~ Move to a class for generic helper functions
-    /**
-     * Convert a <code>byte[]</code> (array of byte) to List&lt;Byte&gt; .
-     * We can't use <code>Arrays.asList</code> or <code>Collections.addAll</code>, because these don't support boxing <code>byte</code> to <code>Byte</code> .
-     * @param bytes
-     * @return
-     */
-    /*
-    public static List<Byte> byteArrayToByteList( byte[] bytes )
-    {
-        List<Byte> res = new ArrayList<>( );
-
-        for ( int i = 0; i < bytes.length; i++ )
-        {
-            res.add( bytes[ i ] );
-        }
-
-        return res;
-    }
-    */
 
     // Assumes the contents is already in the right endian-ness.
 
@@ -86,8 +58,7 @@ public class DicomElement
         byte[] lengthBytes = EndianConverter.littleEndian( (int) ( contents.length /* + 4 when using Explicit VR ? */ ) ) ;
         byte[] contentBytes = this.contents;
 
-        byte[] res = ByteArrayHelper.appendByteArrays( groupBytes, elementBytes, lengthBytes, contentBytes );
-        return res;
+        return ( ByteArrayHelper.appendByteArrays( groupBytes, elementBytes, lengthBytes, contentBytes ) );
     }
 
 
