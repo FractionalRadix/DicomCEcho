@@ -12,6 +12,7 @@ import android.widget.EditText;
 import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.lifecycle.ViewModelProvider;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -20,6 +21,7 @@ import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.ExecutorService;
 
 //TODO!+
 // (1) Use ONLY "byte[]", not "List<Byte>".
@@ -31,10 +33,14 @@ import java.util.List;
 
 public class MainActivity extends AppCompatActivity {
 
+    private MainViewModel viewModel;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+
+        viewModel = new ViewModelProvider(this).get(MainViewModel.class);
 
         final EditText etUriInput = findViewById(R.id.editText);
         Log.d("Dicom C-ECHO", "Found EditText.");
@@ -49,11 +55,8 @@ public class MainActivity extends AppCompatActivity {
                         String text = etUriInput.getText().toString();
                         try {
                             URL url = new URL(text);
-
-                            //TODO!~ Use ExecutorService.
                             EchoOperatorRunnable runnable = new EchoOperatorRunnable(new EchoTask(), url);
-                            Thread echoThread = new Thread(runnable);
-                            echoThread.start();
+                            viewModel.execute(runnable);
                         }
                         catch (MalformedURLException exc)
                         {
@@ -89,7 +92,7 @@ public class MainActivity extends AppCompatActivity {
             {
                 public void handleMessage(Message msg)
                 {
-                    //TODO!~ GEt server response and display it in a field...
+                    //TODO!~ Get server response and display it in a field...
                     Toast.makeText(MainActivity.this, "Result is in", Toast.LENGTH_LONG).show();
                 }
             };
