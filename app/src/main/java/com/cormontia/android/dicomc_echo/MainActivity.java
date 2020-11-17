@@ -18,7 +18,10 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.MalformedURLException;
+import java.net.Socket;
+import java.net.SocketAddress;
 import java.net.URL;
+import java.net.UnknownHostException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
@@ -33,6 +36,7 @@ import java.util.concurrent.ExecutorService;
 
 public class MainActivity extends AppCompatActivity {
 
+    private static final String TAG = "DICOM C-ECHO";
     private MainViewModel viewModel;
 
     @Override
@@ -43,10 +47,10 @@ public class MainActivity extends AppCompatActivity {
         viewModel = new ViewModelProvider(this).get(MainViewModel.class);
 
         final EditText etUriInput = findViewById(R.id.editText);
-        Log.d("Dicom C-ECHO", "Found EditText.");
+        Log.d(TAG, "Found EditText.");
 
         Button btEchoButton = findViewById(R.id.sendEchoButton);
-        Log.d("Dicom C-ECHO", "Found Button.");
+        Log.d(TAG, "Found Button.");
 
         btEchoButton.setOnClickListener(
                 new View.OnClickListener() {
@@ -54,12 +58,14 @@ public class MainActivity extends AppCompatActivity {
                     public void onClick(View v) {
                         String text = etUriInput.getText().toString();
                         try {
+                            Log.d(TAG, "ECHO button clicked");
                             URL url = new URL(text);
                             EchoOperatorRunnable runnable = new EchoOperatorRunnable(new EchoTask(), url);
                             viewModel.execute(runnable);
                         }
                         catch (MalformedURLException exc)
                         {
+                            Log.e(TAG, "Malformed URL: " + text);
                             //TODO!+ Warn the user that they didn't enter a proper URL
                         }
                     }
@@ -84,10 +90,13 @@ public class MainActivity extends AppCompatActivity {
         private EchoTask echoTask;
         private URL url;
 
-        public EchoOperatorRunnable(EchoTask echoTask, URL... urls)
+        public EchoOperatorRunnable(EchoTask echoTask, URL url)
         {
+            Log.d("EchoOperatorRunnable", "Entered constructor of EchoOperatorRunnable.");
+
             this.echoTask = echoTask;
-            url = urls[0];
+            this.url = url;
+
             handler = new Handler(Looper.getMainLooper())
             {
                 public void handleMessage(Message msg)
@@ -96,14 +105,18 @@ public class MainActivity extends AppCompatActivity {
                     Toast.makeText(MainActivity.this, "Result is in", Toast.LENGTH_LONG).show();
                 }
             };
+            Log.d("EchoOperatorRunnable", "Leaving constructor of EchoOperatorRunnable.");
         }
 
         public void run( )
         {
-            android.os.Process.setThreadPriority(Process.THREAD_PRIORITY_BACKGROUND);
             Log.d("EchoOperatorRunnable", "Entered the run() method.");
+            android.os.Process.setThreadPriority(Process.THREAD_PRIORITY_BACKGROUND); //TODO?~
+            Log.d("EchoOperatorRunnable", "Calling sendEchoRequest(...).");
             sendEchoRequest(url);
+            Log.d("EchoOperatorRunnable", "sendEchoRequest(...) called.");
             echoTask.setResult(1, new byte[] {(byte) 0xCA, (byte) 0xFE }); //TODO!~ Put the result here! Whether timeout, refusal or received response bytes.
+            Log.d("EchoOperatorRunnable", "Leaving the run() method.");
         }
     }
 
@@ -113,10 +126,19 @@ public class MainActivity extends AppCompatActivity {
      */
     void sendEchoRequest(URL url)
     {
-        Log.d("DICOM C-ECHO", "Enterend method sendEchoRequest(URL)");
+        final String tag = "sendEchoRequest";
+
+
+
+        Log.d(tag, "Enterend method sendEchoRequest(URL)");
+        Log.d(tag, "url=="+url);
+        Log.d(tag, "Port=="+url.getPort());
         try {
+            //TODO!~ Insert the real address...
+            Socket socket = new Socket("example.com/dicomServer", 104);
+
             java.net.URLConnection con = url.openConnection();
-            Log.d("DICOM C-ECHO", "Created URL Connection");
+            Log.d(tag, "Created URL Connection");
 
             // Create the C-ECHO request.
             List<DicomElement> elements = createEchoRequest();
@@ -147,12 +169,19 @@ public class MainActivity extends AppCompatActivity {
 
             int ch;
             while ((ch = is.read()) != -1) {
-                Log.i("DICOM C-ECHO", byteToHexString((byte) ch));
+                Log.i(tag, byteToHexString((byte) ch));
             }
+        }
+        catch (UnknownHostException exc) {
+            //TODO!~ Here we should inform the user what String was used for the host address.
+            // (At the time of writing it's a constant dummy value....)
+            Log.e(tag, "Unknown host exception.");
         }
         catch (IOException exc)
         {
-            Log.e("DICOM C-ECHO", "I/O exception in method sendEchoRequest()");
+            Log.e(tag, "I/O exception in method sendEchoRequest()");
+            Log.e(tag, exc.getMessage());
+            Log.e(tag, exc.toString());
             //TODO!+
         }
     }
