@@ -9,12 +9,12 @@ import android.util.Log;
 import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.lifecycle.ViewModelProvider;
 
-import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -22,7 +22,6 @@ import java.net.Socket;
 import java.net.SocketTimeoutException;
 import java.net.UnknownHostException;
 import java.util.List;
-import java.util.concurrent.TimeoutException;
 
 //TODO!+
 // (1) Use ONLY "byte[]", not "List<Byte>".
@@ -113,7 +112,7 @@ public class MainActivity extends AppCompatActivity {
     {
         final String tag = "sendEchoRequest";
 
-        Log.d(tag, "Enterend method sendEchoRequest(URL)");
+        Log.d(tag, "Entered method sendEchoRequest(URL)");
         Log.d(tag, "address=="+address);
         Log.d(tag, "Port=="+port);
         try {
@@ -151,11 +150,21 @@ public class MainActivity extends AppCompatActivity {
         catch (SocketTimeoutException exc) {
             String timeoutMsg = "Timeout. Please check if the specified host and port are correct, and if the server is available.";
             Toast.makeText(this, timeoutMsg, Toast.LENGTH_LONG).show();
+
+            //TODO!~ Move this tot the Looper. Only the original thread that created a View hierarchy may touch its views.
+            // And this method is called as a background Thread, so cannot touch the Echo Result View.
+            //TextView tv = findViewById(R.id.tvEchoResult);
+            //tv.setText(timeoutMsg);
         }
         catch (UnknownHostException exc) {
             //TODO!~ Here we should inform the user what String was used for the host address.
             // (At the time of writing it's a constant dummy value....)
             Log.e(tag, "Unknown host exception.");
+
+            //TODO!~ Move this tot the Looper. Only the original thread that created a View hierarchy may touch its views.
+            // And this method is called as a background Thread, so cannot touch the Echo Result View.
+            //TextView tv = findViewById(R.id.tvEchoResult);
+            //tv.setText("Could not connect to the given address: host is unknown. Please check the spelling, and check if the host is available.");
         }
         catch (SecurityException exc) {
             //TODO!+
@@ -168,7 +177,12 @@ public class MainActivity extends AppCompatActivity {
             Log.e(tag, "I/O exception in method sendEchoRequest()");
             Log.e(tag, exc.getMessage());
             Log.e(tag, exc.toString());
-            //TODO!+
+
+            //TODO!~ Move this tot the Looper. Only the original thread that created a View hierarchy may touch its views.
+            // And this method is called as a background Thread, so cannot touch the Echo Result View.
+            //TextView tv = findViewById(R.id.tvEchoResult);
+            //tv.setText("An I/O exception occurred while trying to send the C-ECHO request. Please try again.");
+
         }
     }
 
