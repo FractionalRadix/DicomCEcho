@@ -5,6 +5,9 @@ import java.util.List;
 
 public class RequestFactory
 {
+    /** Generate a DICOM C-ECHO Request.
+     * @return An ordered list of Dicom Elements, that together gives all the bytes for a DICOM C-ECHO request (C-ECHO-Req).
+     */
     public static List<DicomElement> createEchoRequest()
     {
         List<DicomElement> res = new ArrayList<>();
@@ -48,21 +51,5 @@ public class RequestFactory
         ));
 
         return res;
-    }
-
-    /**
-     * Calculates the binary representation of a list of DICOM elements.
-     * In other words, given a list of elements, returns a byte array to represent these elements, in order.
-     * @param elements A list of DICOM elements.
-     * @return A single byte array, containing the binary (byte array) representation of the subsequent DICOM elements.
-     */
-    public static byte[] binaryRepresentation(List<DicomElement> elements)
-    {
-        byte[][] byteRepresentations = new byte[elements.size()][];
-        for (int i = 0; i < elements.size(); i++)
-        {
-            byteRepresentations[i] = elements.get(i).littleEndianRepresentation();
-        }
-        return ( ByteArrayHelper.appendByteArrays(byteRepresentations) );
     }
 }
