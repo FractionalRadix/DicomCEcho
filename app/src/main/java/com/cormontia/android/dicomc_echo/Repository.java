@@ -1,7 +1,11 @@
 package com.cormontia.android.dicomc_echo;
 
+import android.os.Handler;
+import android.os.Looper;
 import android.util.Log;
 import android.widget.Toast;
+
+import androidx.core.os.HandlerCompat;
 
 import java.io.BufferedOutputStream;
 import java.io.IOException;
@@ -11,7 +15,6 @@ import java.net.SocketTimeoutException;
 import java.net.UnknownHostException;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -21,6 +24,12 @@ public class Repository {
     // For now we're putting it in Repository - there's enough to refactor already. (Famous last words...)
     private static ExecutorService executorService;
     private static final int NTHREADS = 3;
+
+    // Learning points:
+    // 1. A Looper runs the message loop for a(n associated) thread.
+    // 2. A Handler is allowed to post to a Thread's Looper.
+    private Handler mainThreadHandler = HandlerCompat.createAsync(Looper.getMainLooper());
+    Handler getMainThreadHandler() { return mainThreadHandler; }
 
     Repository() {
         if (executorService == null) {
@@ -34,6 +43,7 @@ public class Repository {
                 new Runnable() {
                     @Override
                     public void run() {
+                        //DicomEchoRequest.sendEchoRequest(host, port, mainThreadHandler, showResult);
                         DicomEchoRequest.sendEchoRequest(host, port, callback);
                     }
                 }
@@ -70,6 +80,7 @@ class DicomEchoRequest {
      * @param port Port of the DICOM C-ECHO server.
      */
     static void sendEchoRequest(String address, int port, RepositoryCallback callback)
+    //static void sendEchoRequest(String address, int port, Handler resultHandler, Runnable showResult)
     {
         final String tag = "sendEchoRequest";
 
@@ -78,7 +89,7 @@ class DicomEchoRequest {
         Log.d(tag, "Port=="+port);
         try {
             Socket socket = new Socket(address, port);
-            socket.setSoTimeout(5000); // Teimout in milliseconds.
+            socket.setSoTimeout(5000); // Timeout in milliseconds.
 
             // Create the C-ECHO request.
             List<DicomElement> elements = RequestFactory.createEchoRequest();
@@ -132,7 +143,6 @@ class DicomEchoRequest {
             EchoResult result = new EchoResult(EchoResult.Status.Failure, "Failed to get response, due to security reasons.", null);
             callback.onComplete(result);
             return;
-
         }
         catch (IllegalArgumentException exc) {
             Log.e(tag, "Illegal Argument Exception." + exc.toString());
@@ -150,5 +160,4 @@ class DicomEchoRequest {
             return;
         }
     }
-
 }

@@ -13,6 +13,7 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.lifecycle.Observer;
 import androidx.lifecycle.ViewModelProvider;
 
 import org.w3c.dom.Text;
@@ -69,10 +70,16 @@ public class MainActivity extends AppCompatActivity {
                     }
                 }
         );
+
+        viewModel.getEchoResult().observe(this, new Observer() {
+            @Override
+            public void onChanged(Object o) {
+                Log.i("ECHO OBSERER", o.toString());
+                String mesageForUser = viewModel.getEchoResult().getValue();
+                tvResultField.setText(mesageForUser);
+            }
+        });
     }
-
-    private Handler handler;
-
 
     /**
      * Log an array of bytes as a string of hexadecimal numbers.
@@ -94,13 +101,13 @@ public class MainActivity extends AppCompatActivity {
         Log.d("EchoOperator", aux.toString());
     }
 
-    class EchoTask
-    {
-        //TODO!~ Use this to set the result of sending the request. Whether timeout, server refusal, or responding bytes.
-        public void setResult(int n, byte[] result)
-        {
-            Message msg = handler.obtainMessage(n, result);
-            msg.sendToTarget();
+    class ShowResult extends Thread {
+        public void run( ) {
+            TextView echoResultView = findViewById(R.id.tvEchoResult);
+            //TODO!~ Somehow obtain the EchoResult and write it to echoResultView...
+            //  ...we should obtain it from the ViewModel, which means LiveData.
+            //echoResult.setText(echoResult);
         }
     }
 }
+
