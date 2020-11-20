@@ -1,5 +1,7 @@
 package com.cormontia.android.dicomc_echo;
 
+import android.util.Log;
+
 import androidx.lifecycle.ViewModel;
 
 public class MainViewModel extends ViewModel {
@@ -14,6 +16,11 @@ public class MainViewModel extends ViewModel {
     }
 
     public static void sendEchoRequest(String host, int port) {
-        repository.sendEchoRequest(host, port);
+        repository.sendEchoRequest(host, port, new RepositoryCallback() {
+            @Override
+            public void onComplete(EchoResult result) {
+                Log.d("ECHO RESULT!!","Callback result: " + result.getMessage());
+            }
+        });
     }
 }

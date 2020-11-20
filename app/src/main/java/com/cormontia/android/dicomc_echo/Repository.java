@@ -29,12 +29,12 @@ public class Repository {
         }
     }
 
-    public void sendEchoRequest(String host, int port) {
+    public void sendEchoRequest(String host, int port, RepositoryCallback callback) {
         executorService.execute(
                 new Runnable() {
                     @Override
                     public void run() {
-                        EchoResult result = DicomEchoRequest.sendEchoRequest(host, port);
+                        DicomEchoRequest.sendEchoRequest(host, port, callback);
                     }
                 }
         );
@@ -53,6 +53,14 @@ class EchoResult {
         this.messageForUser = msg;
         this.serverResponse = serverResponse;
     }
+
+    public String getMessage( ) {
+        return messageForUser;
+    }
+}
+
+interface RepositoryCallback {
+    void onComplete(EchoResult result);
 }
 
 class DicomEchoRequest {
@@ -61,10 +69,9 @@ class DicomEchoRequest {
      * @param address Address of the DICOM C-ECHO server (not including port number).
      * @param port Port of the DICOM C-ECHO server.
      */
-    static EchoResult sendEchoRequest(String address, int port)
+    static void sendEchoRequest(String address, int port, RepositoryCallback callback)
     {
         final String tag = "sendEchoRequest";
-        final EchoResult result;
 
         Log.d(tag, "Entered method sendEchoRequest(URL)");
         Log.d(tag, "address=="+address);
@@ -103,30 +110,44 @@ class DicomEchoRequest {
             }
             byte[] responseBytes = Converter.byteListToByteArray(serverResponse);
 
-            return new EchoResult(EchoResult.Status.Success, "C-ECHO-Rsp received succesfully!", responseBytes);
+            EchoResult result = new EchoResult(EchoResult.Status.Success, "C-ECHO-Rsp received succesfully!", responseBytes);
+            callback.onComplete(result);
+            return;
         }
         catch (SocketTimeoutException exc) {
             String timeoutMsg = "Timeout. Please check if the specified host and port are correct, and if the server is available.";
-            return new EchoResult(EchoResult.Status.Failure, timeoutMsg, null);
+            EchoResult result = new EchoResult(EchoResult.Status.Failure, timeoutMsg, null);
+            callback.onComplete(result);
+            return;
         }
         catch (UnknownHostException exc) {
             Log.e(tag, "Unknown host exception.");
-            return new EchoResult(EchoResult.Status.Failure, "Unknown host.", null);
+            EchoResult result = new EchoResult(EchoResult.Status.Failure, "Unknown host.", null);
+            callback.onComplete(result);
+            return;
+
         }
         catch (SecurityException exc) {
             Log.e(tag, "Security exception." + exc.toString());
-            return new EchoResult(EchoResult.Status.Failure, "Failed to get response, due to security reasons.", null);
+            EchoResult result = new EchoResult(EchoResult.Status.Failure, "Failed to get response, due to security reasons.", null);
+            callback.onComplete(result);
+            return;
+
         }
         catch (IllegalArgumentException exc) {
             Log.e(tag, "Illegal Argument Exception." + exc.toString());
-            return new EchoResult(EchoResult.Status.Failure, "Failed to get response, wrong arguments (were server and port number specified correctly?)", null);
+            EchoResult result = new EchoResult(EchoResult.Status.Failure, "Failed to get response, wrong arguments (were server and port number specified correctly?)", null);
+            callback.onComplete(result);
+            return;
         }
         catch (IOException exc)
         {
             Log.e(tag, "I/O exception in method sendEchoRequest()");
             Log.e(tag, exc.getMessage());
             Log.e(tag, exc.toString());
-            return new EchoResult(EchoResult.Status.Failure, "An I/O error occured while sending/receiving the C-ECHO. Please check your network and try again.", null);
+            EchoResult result = new EchoResult(EchoResult.Status.Failure, "An I/O error occured while sending/receiving the C-ECHO. Please check your network and try again.", null);
+            callback.onComplete(result);
+            return;
         }
     }
 
