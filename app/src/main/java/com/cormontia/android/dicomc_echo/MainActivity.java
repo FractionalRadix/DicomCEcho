@@ -15,6 +15,8 @@ import android.widget.Toast;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.lifecycle.ViewModelProvider;
 
+import org.w3c.dom.Text;
+
 import java.io.BufferedOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -43,22 +45,27 @@ public class MainActivity extends AppCompatActivity {
 
         viewModel = new ViewModelProvider(this).get(MainViewModel.class);
 
-        final EditText etUriInput = findViewById(R.id.etHost);
-        Log.d(TAG, "Found EditText.");
-
+        final EditText etHostname = findViewById(R.id.etHost);
+        final EditText etPortNumber = findViewById(R.id.etPortNumber);
         Button btEchoButton = findViewById(R.id.sendEchoButton);
-        Log.d(TAG, "Found Button.");
+        final TextView tvResultField = findViewById(R.id.tvEchoResult);
 
         btEchoButton.setOnClickListener(
                 new View.OnClickListener() {
                     @Override
                     public void onClick(View v) {
-                        String text = etUriInput.getText().toString();
                         Log.d(TAG, "ECHO button clicked");
-                        String address = text;
-                        int port = 104; //TODO!~ Take it from a separate input (that defaults to 104)
-                        EchoOperatorRunnable runnable = new EchoOperatorRunnable(new EchoTask(), address, port);
-                        viewModel.execute(runnable);
+                        String hostname = etHostname.getText().toString();
+                        int port = 104;
+                        String portNrAsString = etPortNumber.getText().toString();
+                        try {
+                            port = Integer.parseInt(portNrAsString);
+                        }
+                        catch (NumberFormatException exc) {
+                            tvResultField.setText("Bad number for port: " + portNrAsString);
+                            tvResultField.append("Defaulting to port " + port);
+                        }
+                        viewModel.sendEchoRequest(hostname, port);
                     }
                 }
         );
@@ -66,125 +73,6 @@ public class MainActivity extends AppCompatActivity {
 
     private Handler handler;
 
-    class EchoOperatorRunnable implements Runnable
-    {
-        private EchoTask echoTask;
-        private String address;
-        private int port;
-
-        public EchoOperatorRunnable(EchoTask echoTask, String address, int port)
-        {
-            Log.d("EchoOperatorRunnable", "Entered constructor of EchoOperatorRunnable.");
-
-            this.echoTask = echoTask;
-            this.address = address;
-            this.port = port;
-
-            handler = new Handler(Looper.getMainLooper())
-            {
-                public void handleMessage(Message msg)
-                {
-                    //TODO!~ Get server response and display it in a field...
-                    Toast.makeText(MainActivity.this, "Result is in", Toast.LENGTH_LONG).show();
-                }
-            };
-            Log.d("EchoOperatorRunnable", "Leaving constructor of EchoOperatorRunnable.");
-        }
-
-        public void run( )
-        {
-            Log.d("EchoOperatorRunnable", "Entered the run() method.");
-            android.os.Process.setThreadPriority(Process.THREAD_PRIORITY_BACKGROUND); //TODO?~
-            Log.d("EchoOperatorRunnable", "Calling sendEchoRequest(...).");
-            sendEchoRequest(address, port);
-            Log.d("EchoOperatorRunnable", "sendEchoRequest(...) called.");
-            echoTask.setResult(1, new byte[] {(byte) 0xCA, (byte) 0xFE }); //TODO!~ Put the result here! Whether timeout, refusal or received response bytes.
-            Log.d("EchoOperatorRunnable", "Leaving the run() method.");
-        }
-    }
-
-    /**
-     * Send a DICOM C-ECHO request to a specified address.
-     * @param address Address of the DICOM C-ECHO server (not including port number).
-     * @param port Port of the DICOM C-ECHO server.
-     */
-    void sendEchoRequest(String address, int port)
-    {
-        final String tag = "sendEchoRequest";
-
-        Log.d(tag, "Entered method sendEchoRequest(URL)");
-        Log.d(tag, "address=="+address);
-        Log.d(tag, "Port=="+port);
-        try {
-            Socket socket = new Socket(address, port);
-            socket.setSoTimeout(5000); // Teimout in milliseconds.
-
-            // Create the C-ECHO request.
-            List<DicomElement> elements = RequestFactory.createEchoRequest();
-            byte[] echoRequestBytes = Converter.binaryRepresentation(elements);
-
-            //TODO!- FOR DEBUGGING
-            logBytesAsHexString(echoRequestBytes);
-
-            // Try-with-resources requires API level 19, currently supported minimum is 14.
-            BufferedOutputStream bos = new BufferedOutputStream(socket.getOutputStream());
-            bos.write(echoRequestBytes, 0, echoRequestBytes.length);
-            bos.flush();
-            bos.close(); //TODO?~ Should this be done here? Also, didn't close() automatically flush() ?
-
-            // Wait (asynchronously, of course) for the C-ECHO Response (if any).
-            // When the C-ECHO Response is in, parse it.
-            // (Not that there is much to parse in a C-ECHO Response...)
-            // If the Response doesn't arrive, or is somehow wrong... we need to report this to the user.
-            // If the Response is received properly, we also need to report this to the user.
-
-            InputStream bis = socket.getInputStream();
-
-            //TODO!~ NAIVE SOLUTION: Just read all.
-            //   Need some sort of timeout. Or parse while reading.
-            int ch;
-            while ((ch = bis.read()) != -1) {
-                Log.i(tag, Converter.byteToHexString((byte) ch));
-            }
-        }
-        catch (SocketTimeoutException exc) {
-            String timeoutMsg = "Timeout. Please check if the specified host and port are correct, and if the server is available.";
-            Toast.makeText(this, timeoutMsg, Toast.LENGTH_LONG).show();
-
-            //TODO!~ Move this tot the Looper. Only the original thread that created a View hierarchy may touch its views.
-            // And this method is called as a background Thread, so cannot touch the Echo Result View.
-            //TextView tv = findViewById(R.id.tvEchoResult);
-            //tv.setText(timeoutMsg);
-        }
-        catch (UnknownHostException exc) {
-            //TODO!~ Here we should inform the user what String was used for the host address.
-            // (At the time of writing it's a constant dummy value....)
-            Log.e(tag, "Unknown host exception.");
-
-            //TODO!~ Move this tot the Looper. Only the original thread that created a View hierarchy may touch its views.
-            // And this method is called as a background Thread, so cannot touch the Echo Result View.
-            //TextView tv = findViewById(R.id.tvEchoResult);
-            //tv.setText("Could not connect to the given address: host is unknown. Please check the spelling, and check if the host is available.");
-        }
-        catch (SecurityException exc) {
-            //TODO!+
-        }
-        catch (IllegalArgumentException exc) {
-            //TODO!+
-        }
-        catch (IOException exc)
-        {
-            Log.e(tag, "I/O exception in method sendEchoRequest()");
-            Log.e(tag, exc.getMessage());
-            Log.e(tag, exc.toString());
-
-            //TODO!~ Move this tot the Looper. Only the original thread that created a View hierarchy may touch its views.
-            // And this method is called as a background Thread, so cannot touch the Echo Result View.
-            //TextView tv = findViewById(R.id.tvEchoResult);
-            //tv.setText("An I/O exception occurred while trying to send the C-ECHO request. Please try again.");
-
-        }
-    }
 
     /**
      * Log an array of bytes as a string of hexadecimal numbers.

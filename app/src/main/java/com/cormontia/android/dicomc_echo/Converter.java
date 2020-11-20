@@ -36,4 +36,19 @@ public class Converter {
 
         return new String( new char[] { ch1, ch0 } );
     }
+
+    /**
+     * Given a List of Byte instances, return the corresponding array of byte instances.
+     * @param byteList A List of Byte instances. None of the instances should be <code>null</code> .
+     * @return An array of type byte, where every byte is the byte version of the corresponding Byte instance in the input.
+     */
+    public static byte[] byteListToByteArray(List<Byte> byteList) {
+        // You'd think Java 8 could convert a List<T> to t , in a single command... "toArray(T[])" seems to dislike having to unbox Byte.
+        int responseLength = byteList.size();
+        byte[] byteArray = new byte[responseLength];
+        for (int i = 0; i < responseLength; i++) {
+            byteArray[i] = byteList.get(i);
+        }
+        return byteArray;
+    }
 }

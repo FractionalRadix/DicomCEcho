@@ -2,23 +2,18 @@ package com.cormontia.android.dicomc_echo;
 
 import androidx.lifecycle.ViewModel;
 
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-
 public class MainViewModel extends ViewModel {
 
-    private static ExecutorService executorService;
-    private static final int NTHREADS = 3;
+    private static Repository repository;
 
     public MainViewModel() {
-        if (executorService == null) {
-            //TODO?~ Is it wise to use a fixed thread pool here...?
-            executorService = Executors.newFixedThreadPool(NTHREADS);
+        if (repository == null)
+        {
+            repository = new Repository();
         }
     }
 
-    //TODO?~ Not sure if "execute(Runnable)" is the one we should use here.
-    void execute(Runnable runnable) {
-        executorService.execute(runnable);
+    public static void sendEchoRequest(String host, int port) {
+        repository.sendEchoRequest(host, port);
     }
 }
