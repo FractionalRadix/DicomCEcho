@@ -43,7 +43,7 @@ public class MainActivity extends AppCompatActivity {
 
         viewModel = new ViewModelProvider(this).get(MainViewModel.class);
 
-        final EditText etUriInput = findViewById(R.id.editText);
+        final EditText etUriInput = findViewById(R.id.etHost);
         Log.d(TAG, "Found EditText.");
 
         Button btEchoButton = findViewById(R.id.sendEchoButton);
