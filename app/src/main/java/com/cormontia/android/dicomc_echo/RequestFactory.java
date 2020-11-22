@@ -25,7 +25,7 @@ public class RequestFactory
                 new DicomTag( (short) 0x0000, (short) 0x0002 ),
                 DicomVR.VR.UI,
                 //18,
-                DicomUIDs.byteArrayRepresentation( DicomUIDs.affectedServiceClassUID )
+                DicomUIDs.byteArrayRepresentation( DicomUIDs.verificationSOPClass)
         ));
 
         // Command Field

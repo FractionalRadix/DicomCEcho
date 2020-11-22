@@ -2,7 +2,8 @@ package com.cormontia.android.dicomc_echo;
 
 public class DicomUIDs
 {
-    public static final String affectedServiceClassUID = "1.2.840.10008.1.1";
+    public static final String verificationSOPClass        = "1.2.840.10008.1.1";
+    public static final String dicomApplicationContextName = "1.2.840.10008.3.1.1.1"; // Default Application Context name. Vendors may have their own values, as assigned by NEMA.
 
     public static byte[] byteArrayRepresentation( String input )
     {
