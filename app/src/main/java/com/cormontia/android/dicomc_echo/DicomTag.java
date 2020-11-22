@@ -2,7 +2,7 @@ package com.cormontia.android.dicomc_echo;
 
 public class DicomTag
 {
-    private short group, element;
+    private final short group, element;
 
     public DicomTag( short group, short element )
     {

@@ -12,6 +12,9 @@ import java.util.ArrayList;
 import java.util.List;
 
 class DicomEchoRequest {
+
+    private static final String TAG = "DICOM C-ECHO";
+
     /**
      * Send a DICOM C-ECHO request to a specified address.
      *
@@ -19,11 +22,10 @@ class DicomEchoRequest {
      * @param port    Port of the DICOM C-ECHO server.
      */
     static void sendEchoRequest(String address, int port, EchoRequestCallback callback) {
-        final String tag = "sendEchoRequest";
 
-        Log.d(tag, "Entered method sendEchoRequest(URL)");
-        Log.d(tag, "address==" + address);
-        Log.d(tag, "Port==" + port);
+        Log.d(TAG, "Entered method sendEchoRequest(URL)");
+        Log.d(TAG, "address==" + address);
+        Log.d(TAG, "Port==" + port);
         try {
             Socket socket = new Socket(address, port);
             socket.setSoTimeout(5000); // Timeout in milliseconds.
@@ -53,40 +55,40 @@ class DicomEchoRequest {
             //   Need some sort of timeout. Or parse while reading.
             int ch;
             while ((ch = bis.read()) != -1) {
-                Log.i(tag, Converter.byteToHexString((byte) ch));
+                Log.i(TAG, Converter.byteToHexString((byte) ch));
                 serverResponse.add((byte) ch);
             }
             byte[] responseBytes = Converter.byteListToByteArray(serverResponse);
 
-            EchoResult result = new EchoResult(EchoResult.Status.Success, "C-ECHO-Rsp received succesfully!", responseBytes);
+            EchoResult result = new EchoResult(EchoResult.Status.Success, "C-ECHO-Rsp received successfully!", responseBytes);
             callback.onComplete(result);
             return;
         } catch (SocketTimeoutException exc) {
+            Log.e(TAG, "Socket timeout exception.");
             String timeoutMsg = "Timeout. Please check if the specified host and port are correct, and if the server is available.";
             EchoResult result = new EchoResult(EchoResult.Status.Failure, timeoutMsg, null);
             callback.onComplete(result);
             return;
         } catch (UnknownHostException exc) {
-            Log.e(tag, "Unknown host exception.");
+            Log.e(TAG, "Unknown host exception.");
             EchoResult result = new EchoResult(EchoResult.Status.Failure, "Unknown host.", null);
             callback.onComplete(result);
             return;
-
         } catch (SecurityException exc) {
-            Log.e(tag, "Security exception." + exc.toString());
+            Log.e(TAG, "Security exception." + exc.toString());
             EchoResult result = new EchoResult(EchoResult.Status.Failure, "Failed to get response, due to security reasons.", null);
             callback.onComplete(result);
             return;
         } catch (IllegalArgumentException exc) {
-            Log.e(tag, "Illegal Argument Exception." + exc.toString());
+            Log.e(TAG, "Illegal Argument Exception." + exc.toString());
             EchoResult result = new EchoResult(EchoResult.Status.Failure, "Failed to get response, wrong arguments (were server and port number specified correctly?)", null);
             callback.onComplete(result);
             return;
         } catch (IOException exc) {
-            Log.e(tag, "I/O exception in method sendEchoRequest()");
-            Log.e(tag, exc.getMessage());
-            Log.e(tag, exc.toString());
-            EchoResult result = new EchoResult(EchoResult.Status.Failure, "An I/O error occured while sending/receiving the C-ECHO. Please check your network and try again.", null);
+            Log.e(TAG, "I/O exception in method sendEchoRequest()");
+            Log.e(TAG, exc.getMessage());
+            Log.e(TAG, exc.toString());
+            EchoResult result = new EchoResult(EchoResult.Status.Failure, "An I/O error occurred while sending/receiving the C-ECHO. Please check your network and try again.", null);
             callback.onComplete(result);
             return;
         }

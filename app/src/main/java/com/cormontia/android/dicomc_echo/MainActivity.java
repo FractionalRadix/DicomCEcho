@@ -1,30 +1,15 @@
 package com.cormontia.android.dicomc_echo;
 
-import android.os.Handler;
-import android.os.Looper;
-import android.os.Message;
-import android.os.Process;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.TextView;
-import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.lifecycle.Observer;
 import androidx.lifecycle.ViewModelProvider;
-
-import org.w3c.dom.Text;
-
-import java.io.BufferedOutputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.net.Socket;
-import java.net.SocketTimeoutException;
-import java.net.UnknownHostException;
-import java.util.List;
 
 //TODO!+
 // (1) Use ONLY "byte[]", not "List<Byte>".
@@ -66,17 +51,18 @@ public class MainActivity extends AppCompatActivity {
                             tvResultField.setText("Bad number for port: " + portNrAsString);
                             tvResultField.append("Defaulting to port " + port);
                         }
+                        Log.d(TAG, "Asking ViewModel to send Echo Request.");
                         viewModel.sendEchoRequest(hostname, port);
                     }
                 }
         );
 
-        viewModel.getEchoResult().observe(this, new Observer() {
+        viewModel.getEchoResult().observe(this, new Observer<String>() {
             @Override
-            public void onChanged(Object o) {
-                Log.i("ECHO OBSERER", o.toString());
-                String mesageForUser = viewModel.getEchoResult().getValue();
-                tvResultField.setText(mesageForUser);
+            public void onChanged(String str) {
+                Log.i(TAG, "Echo observer: str=="+str);
+                String messageForUser = viewModel.getEchoResult().getValue();
+                tvResultField.setText(messageForUser);
             }
         });
     }
@@ -99,15 +85,6 @@ public class MainActivity extends AppCompatActivity {
             }
         }
         Log.d("EchoOperator", aux.toString());
-    }
-
-    class ShowResult extends Thread {
-        public void run( ) {
-            TextView echoResultView = findViewById(R.id.tvEchoResult);
-            //TODO!~ Somehow obtain the EchoResult and write it to echoResultView...
-            //  ...we should obtain it from the ViewModel, which means LiveData.
-            //echoResult.setText(echoResult);
-        }
     }
 }
 

@@ -38,7 +38,7 @@ public class DicomVR
         UC /* Unlimited Characters */,
         UI /* Unique Identifier */,
         UL /* Unsigned Long */,
-        UR /* Universial Resource Identifier or Universal Resource Locator */,
+        UR /* Universal Resource Identifier or Universal Resource Locator */,
         US /* Unsigned Short */,
         UT /* Unlimited Text */,
         UN /* Unknown */
