@@ -24,7 +24,7 @@ public class Associator {
 }
 
 abstract class AssociationElement {
-    protected byte[] getBytes(byte firstByte, String uid) {
+    protected byte[] getBytes(byte itemType, String uid) {
         // This code is based upon the information in Pianykh, p183 and further.
         // It first describes Abstract Syntaxes in DICOM Assocations, on p183.
         // It then explains that What applies to these (regarding length fields and byte ordering), also applies to Transfer Syntaxes and Application Contexts.
@@ -32,7 +32,7 @@ abstract class AssociationElement {
         // Note: in this case, the length of the UID does not have to be an even number of bytes. (Pianykh, p183).
         int len = uid.length();
         byte[] res = new byte[4 + len];
-        res[0] = firstByte;
+        res[0] = itemType;
         res[1] = 0x00; // Reserved
         // "The last (fourth) field contains the L bytes of the Abstract Syntax name" (Pianykh, p183).
         res[2] = (byte) ((len & 0xFF00) >> 8);
@@ -184,7 +184,9 @@ class UserInformation {
         List<Byte> implementationIdentificationBytes = determineImplementationIdentificationBytes();
 
         // Asynchronous operations
-        List<Byte> asynchronousOperationBytes = determineAsynchronousOperationBytes();
+        int maxNumberOperationsInvoked = 1; //TODO?~ Parameterize
+        int maxNumberOperationsPerformed = 1; //TODO?~ Parameterize
+        List<Byte> asynchronousOperationBytes = determineAsynchronousOperationBytes(maxNumberOperationsInvoked, maxNumberOperationsPerformed);
 
         // SCP/SCU role
         List<Byte> scuScpRoleBytes = determineScuScpRoleBytes();
@@ -268,11 +270,18 @@ class UserInformation {
         return res;
     }
 
-    private List<Byte> determineAsynchronousOperationBytes() {
+    private List<Byte> determineAsynchronousOperationBytes(int maxNumberOperationsInvoked, int maxNumberOperationsPerformed) {
         List<Byte> res = new ArrayList<>();
 
-        //TODO!+
-
+        res.add((byte) 0x53);
+        res.add((byte) 0x00);
+        res.add((byte) 0x00); // Item length, fixed at 4; high byte.
+        res.add((byte) 0x04); // Item length, fixed at 4; low byte.
+        res.add((byte) ((maxNumberOperationsInvoked   & 0x0000FF00) >>  8)); // Item length, high byte.
+        res.add((byte) ((maxNumberOperationsInvoked   & 0x00000FF))       ); // Item length, low byte.
+        res.add((byte) ((maxNumberOperationsPerformed & 0x0000FF00) >>  8)); // Item length, high byte.
+        res.add((byte) ((maxNumberOperationsPerformed & 0x00000FF))       ); // Item length, low byte.
+        
         return res;
     }
 
