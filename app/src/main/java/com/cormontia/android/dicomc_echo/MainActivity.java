@@ -14,6 +14,9 @@ import androidx.lifecycle.ViewModelProvider;
 //TODO!+
 // (1) Use ONLY "byte[]", not "List<Byte>".
 //    The constant conversion between List<Byte> and byte[] is a waste.
+//    (Or, maybe use List<Byte> only during construction of things, then turn them into byte[] at the last moment.
+//     Note that Java does not have a primitive stream for bytes; i.e. there is no ByteStream like there is IntStream, DoubleStream or LongStream.
+//     So the you'll still be stuck with the unboxing, and the fact that a Byte may be NULL.)
 // (2) Add checks to the DicomElement constructor, to verify that the length of the content corresponds to that given by the VR.
 //    For this purpose, the VR's with fixed lengths should have their length values added.
 //    Note that many VR's (like String, Unknown and Sequence) have variable lengths.

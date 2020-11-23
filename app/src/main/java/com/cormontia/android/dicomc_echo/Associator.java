@@ -158,14 +158,12 @@ class PresentationContext {
 }
 
 class UserInformation {
-    //TODO!+
-
     /** Maximum PDU length
      * Defaults to 0 because that indicates that no maximum length is specified.
      *  "The value of (0) indicates that no maximum length is specified."
      *  Source: http://dicom.nema.org/medical/dicom/current/output/chtml/part08/chapter_D.html
      */
-    private int maxPDULength = 0; //
+    private int maxPDULength = 0;
     public void setMaxPDULength(int maxPDULength) { this.maxPDULength = maxPDULength; }
 
     private final String implementationClassUID = DicomUIDs.dicomApplicationContextName; //TODO?~ Is it acceptable to use this one here?
@@ -176,61 +174,122 @@ class UserInformation {
     }
 
     byte[] getBytes() {
-        int len = 2000; //TODO!~
-        byte[] res = new byte[len];
-
-        res[0] = 0x50;
-        res[1] = 0x00;
-        res[2] = (byte) ((len & 0xFF00) >> 8);
-        res[3] = (byte) (len & 0x00FF);
-
-        //TODO!+ Add the sub items
 
         // Maximum PDU length
         // DICOM definition: http://dicom.nema.org/medical/dicom/current/output/chtml/part08/chapter_D.html
-        res[ 4] = 0x51;
-        res[ 5] = 0x00;
-        res[ 6] = (byte) 0x00; // Item length, fixed at 4; high byte.
-        res[ 7] = (byte) 0x04; // Item length, fixed at 4; low byte.
-        res[ 8] = (byte) ((maxPDULength & 0xFF000000) >> 24);
-        res[ 9] = (byte) ((maxPDULength & 0x00FF0000) >> 16);
-        res[10] = (byte) ((maxPDULength & 0x0000FF00) >>  8);
-        res[11] = (byte) ((maxPDULength & 0x000000FF));
+        List<Byte> maxPDULengthBytes = determineMaxPDULengthBytes();
 
         // Implementation identification
         // DICOM Definition: http://dicom.nema.org/medical/dicom/current/output/chtml/part07/sect_D.3.3.2.html
-        int uidLen = implementationClassUID.length();
-        res[12] = 0x52;
-        res[13] = 0x00;
-        res[14] = (byte) ((uidLen & 0x0000FF00) >>  8); // Item length, high byte.
-        res[15] = (byte) ((uidLen & 0x00000FF));        // Item length, low byte.
-        for (int i = 0; i < implementationClassUID.length(); i++) {
-            res[16 + i] = (byte) implementationClassUID.charAt(i);
-        }
-
-        int offset = 16 + uidLen;
-        // Optional part: version name
-        if (this.implementationVersionName != null) {
-            int versionLen = implementationVersionName.length();
-            res[offset  ] = 0x55;
-            res[offset+1] = 0x00;
-            res[offset+2] = (byte) ((versionLen & 0x0000FF00) >>  8); // Item length, high byte.
-            res[offset+3] = (byte) ((versionLen & 0x00000FF));        // Item length, low byte.
-            offset += 4;
-            for (int i = 0; i < implementationVersionName.length(); i++) {
-                res[offset + i] = (byte) implementationVersionName.charAt(i);
-            }
-        }
+        List<Byte> implementationIdentificationBytes = determineImplementationIdentificationBytes();
 
         // Asynchronous operations
-        //TODO!+
+        List<Byte> asynchronousOperationBytes = determineAsynchronousOperationBytes();
 
         // SCP/SCU role
+        List<Byte> scuScpRoleBytes = determineScuScpRoleBytes();
         //TODO!+
 
         // Extended negotiation
+        List<Byte> extendedNegotiationBytes = determineExtendedNegotiationBytes();
+
+        // And finally, the first four bytes.
+        // These are calculated last, because they contain the length of the rest of the item....
+        List<Byte> headerBytes = new ArrayList<Byte>();
+        int lengthWithoutHeader = maxPDULengthBytes.size()
+                + implementationIdentificationBytes.size()
+                + asynchronousOperationBytes.size()
+                + scuScpRoleBytes.size()
+                + extendedNegotiationBytes.size();
+
+        headerBytes.add((byte) 0x50);
+        headerBytes.add((byte) 0x00);
+        headerBytes.add((byte) ((lengthWithoutHeader & 0xFF00) >> 8));
+        headerBytes.add((byte) ((lengthWithoutHeader & 0x00FF)     ));
+
+        // With all the bytes calculated, we can now turn it into an array.
+        List<Byte> masterList = new ArrayList<>();
+        masterList.addAll(headerBytes);
+        masterList.addAll(maxPDULengthBytes);
+        masterList.addAll(implementationIdentificationBytes);
+        masterList.addAll(asynchronousOperationBytes);
+        masterList.addAll(scuScpRoleBytes);
+        masterList.addAll(extendedNegotiationBytes);
+
+        int fullLength = masterList.size();
+        byte[] res = new byte[fullLength];
+        for (int i = 0; i < fullLength; i++) {
+            res[i] = masterList.get(i);
+        }
+
+        return res;
+    }
+
+    private List<Byte> determineMaxPDULengthBytes( ) {
+        // Maximum PDU length
+        // DICOM definition: http://dicom.nema.org/medical/dicom/current/output/chtml/part08/chapter_D.html
+        List<Byte> res = new ArrayList<>();
+        res.add((byte) 0x51);
+        res.add((byte) 0x00);
+        res.add((byte) 0x00); // Item length, fixed at 4; high byte.
+        res.add((byte) 0x04); // Item length, fixed at 4; low byte.
+        res.add((byte) ((maxPDULength & 0xFF000000) >> 24));
+        res.add((byte) ((maxPDULength & 0x00FF0000) >> 16));
+        res.add((byte) ((maxPDULength & 0x0000FF00) >>  8));
+        res.add((byte) ((maxPDULength & 0x000000FF))      );
+        return res;
+    }
+
+    private List<Byte> determineImplementationIdentificationBytes() {
+        // Implementation identification
+        // DICOM Definition: http://dicom.nema.org/medical/dicom/current/output/chtml/part07/sect_D.3.3.2.html
+        List<Byte> res = new ArrayList<>();
+        int uidLen = implementationClassUID.length();
+        res.add((byte)0x52);
+        res.add((byte)0x00);
+        res.add((byte) ((uidLen & 0x0000FF00) >>  8)); // Item length, high byte.
+        res.add((byte) ((uidLen & 0x00000FF))       );        // Item length, low byte.
+        for (int i = 0; i < implementationClassUID.length(); i++) {
+            res.add((byte) implementationClassUID.charAt(i));
+        }
+
+        // Optional part: version name
+        if (this.implementationVersionName != null) {
+            int versionLen = implementationVersionName.length();
+            res.add((byte) 0x55);
+            res.add((byte) 0x00);
+            res.add((byte) ((versionLen & 0x0000FF00) >>  8)); // Item length, high byte.
+            res.add((byte) ((versionLen & 0x00000FF))       ); // Item length, low byte.
+            for (int i = 0; i < implementationVersionName.length(); i++) {
+                res.add((byte) implementationVersionName.charAt(i));
+            }
+        }
+
+        return res;
+    }
+
+    private List<Byte> determineAsynchronousOperationBytes() {
+        List<Byte> res = new ArrayList<>();
+
         //TODO!+
 
         return res;
     }
+
+    private List<Byte> determineScuScpRoleBytes() {
+        List<Byte> res = new ArrayList<>();
+
+        //TODO!+
+
+        return res;
+    }
+
+    private List<Byte> determineExtendedNegotiationBytes() {
+        List<Byte> res = new ArrayList<>();
+
+        //TODO!+
+
+        return res;
+    }
+
 }
