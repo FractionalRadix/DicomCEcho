@@ -43,18 +43,11 @@ public class Associator {
             Socket socket = new Socket(host, port);
             socket.setSoTimeout(5000); // Timeout in milliseconds.
 
-            // Create the C-ECHO request.
-            List<DicomElement> elements = RequestFactory.createEchoRequest();
-            byte[] echoRequestBytes = Converter.binaryRepresentation(elements);
-
-            //TODO!- FOR DEBUGGING
-            //logBytesAsHexString(echoRequestBytes);
-
             // Try-with-resources requires API level 19, currently supported minimum is 14.
             BufferedOutputStream bos = new BufferedOutputStream(socket.getOutputStream());
-            bos.write(echoRequestBytes, 0, echoRequestBytes.length);
-            bos.flush();
-            bos.close(); //TODO?~ Should this be done here? Also, didn't close() automatically flush() ?
+            bos.write(requestBytes, 0, requestBytes.length);
+            //bos.flush();
+            //bos.close(); //TODO?~ Should this be done here? Also, didn't close() automatically flush() ?
         }
         catch (SocketException exc) {
             //TODO!+
