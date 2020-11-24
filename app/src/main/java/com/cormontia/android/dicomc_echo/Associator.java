@@ -1,8 +1,15 @@
 
 package com.cormontia.android.dicomc_echo;
 
+import android.util.Log;
+
 import androidx.annotation.NonNull;
 
+import java.io.BufferedOutputStream;
+import java.io.IOException;
+import java.net.Socket;
+import java.net.SocketException;
+import java.net.UnknownHostException;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -11,9 +18,57 @@ import java.util.List;
  */
 public class Associator {
 
+    private final static String TAG = "DICOM Associator";
+
+    static PresentationContext presentationContextForEcho() {
+        //TODO!~ Parameterize with proper defaults. (User's choice is:  which of 3 transfer syntaxes...)
+        byte presentationContextID = 0x42; //TODO?~ Arbitrary number.
+        AbstractSyntax abstractSyntax = new AbstractSyntax(DicomUIDs.verificationSOPClass);
+        TransferSyntax transferSyntax1 = new TransferSyntax(DicomUIDs.implicitVRLittleEndian);
+        TransferSyntax transferSyntax2 = new TransferSyntax(DicomUIDs.explicitVRLittleEndian);
+        return new PresentationContext(presentationContextID, abstractSyntax, transferSyntax1, transferSyntax2);
+    }
+
     static void sendAAssociateRQ(String callingAETitle, String calledAETitle, String host, int port, PresentationContext... presentationContexts) {
-        //TODO!+
-        // 1. Send the request to the called AE.
+
+        //TODO!+ Add a field to the XML where the user can optionally specify a "Called AE" name.
+        // ...because some DICOM hosts use a whitelist that only checks for the AE Title...
+
+        // 1. Calculate the bytes for the A-Associate-RQ, and send them to the called AE.
+        List<Byte> AAssociateRQ = calculateAAsociateRQBytes(callingAETitle, calledAETitle, presentationContexts);
+
+
+        byte[] requestBytes = listToArray(AAssociateRQ);
+        try {
+            Socket socket = new Socket(host, port);
+            socket.setSoTimeout(5000); // Timeout in milliseconds.
+
+            // Create the C-ECHO request.
+            List<DicomElement> elements = RequestFactory.createEchoRequest();
+            byte[] echoRequestBytes = Converter.binaryRepresentation(elements);
+
+            //TODO!- FOR DEBUGGING
+            //logBytesAsHexString(echoRequestBytes);
+
+            // Try-with-resources requires API level 19, currently supported minimum is 14.
+            BufferedOutputStream bos = new BufferedOutputStream(socket.getOutputStream());
+            bos.write(echoRequestBytes, 0, echoRequestBytes.length);
+            bos.flush();
+            bos.close(); //TODO?~ Should this be done here? Also, didn't close() automatically flush() ?
+        }
+        catch (SocketException exc) {
+            //TODO!+
+            Log.e(TAG, exc.toString());
+        }
+        catch (UnknownHostException exc) {
+            //TODO!+
+            Log.e(TAG, exc.toString());
+        }
+        catch (IOException exc) {
+            //TODO!+
+            Log.e(TAG, exc.toString());
+        }
+
         // 2. Await the result.
         // 3. The result can be: timeout, A-Associate-AC, A-Associate-RJ. Maybe also A-Associate-ABORT, need to figure that one out.
         //    Interpret the result.
@@ -21,24 +76,105 @@ public class Associator {
         //    A-Associate-AC means the Assocation is established and can be used. Return the assocation.
         //    The others mean that for, whatever reason, the Assocation is not established. Inform the user.
     }
+
+    private static List<Byte> calculateAAsociateRQBytes(String callingAETitle, String calledAETitle, PresentationContext[] presentationContexts) {
+        String applicationContextUID = null; //TODO?~
+        List<Byte> applicationContextItemBytes = new ApplicationContext(applicationContextUID).getBytes();
+
+        List<Byte> allPresentationContextsBytes = new ArrayList<>();
+        for (PresentationContext presentationContext : presentationContexts) {
+            allPresentationContextsBytes.addAll(presentationContext.getBytes(true));
+        }
+
+        List<Byte> userInformationBytes = new UserInformation().getBytes();
+
+        int len = 2 + 2 + 16 + 16 + 32 + applicationContextItemBytes.size() + allPresentationContextsBytes.size() + userInformationBytes.size();
+
+        List<Byte> AAssociateRQ = new ArrayList<>();
+        AAssociateRQ.add((byte) 0x01);
+        AAssociateRQ.add((byte) 0x00);
+        AAssociateRQ.add((byte) ((len & 0xFF00) >> 8));
+        AAssociateRQ.add((byte) ((len & 0x00FF)     ));
+        AAssociateRQ.add((byte) 0x00); // Protocol version, high byte
+        AAssociateRQ.add((byte) 0x00); // Protocol version, low byte
+        AAssociateRQ.add((byte) 0x00);
+        AAssociateRQ.add((byte) 0x00);
+
+        // Note: we may be able to use String.format for a more elegant way of doing the padding:
+        //   return String.format("%1$" + length + "s", inputString).replace(' ', '0');
+        //   Source: https://www.baeldung.com/java-pad-string
+
+
+        String modifiedCallingAETitle = callingAETitle;
+        if (modifiedCallingAETitle.length() > 16) {
+            modifiedCallingAETitle = modifiedCallingAETitle.substring(0,16);
+        }
+        for (int i = modifiedCallingAETitle.length(); i < 16; i++ ) {
+            modifiedCallingAETitle += ' ';
+        }
+        AAssociateRQ = addString(AAssociateRQ, modifiedCallingAETitle);
+
+        String modifiedCalledAETitle = calledAETitle;
+        if (modifiedCalledAETitle.length() > 16) {
+            modifiedCalledAETitle = modifiedCalledAETitle.substring(0, 16);
+        }
+        for (int i = modifiedCalledAETitle.length(); i < 16; i++) {
+            modifiedCalledAETitle += ' ';
+        }
+        AAssociateRQ = addString(AAssociateRQ, modifiedCalledAETitle);
+
+        AAssociateRQ.addAll(applicationContextItemBytes);
+        AAssociateRQ.addAll(allPresentationContextsBytes);
+        AAssociateRQ.addAll(userInformationBytes);
+        return AAssociateRQ;
+    }
+
+    /** Primitive conversion of String to List&lt;Byte&gt; .
+     * Does not support characters that won't fit in a byte.
+     * @param list A List of bytes, to which the characters in the string will be appended.
+     * @param str A string, whose individual characters need to be added to the given list.
+     * @return The input string, with the bytes for the characters in the string appended at the end.
+     */
+    private static List<Byte> addString(List<Byte> list, String str) {
+        for(char ch : str.toCharArray()) {
+            list.add((byte) ch);
+        }
+        return list;
+    }
+
+    /** Primitive conversion of List&lt;Byte&gt; to byte[].
+     * It is assumed that none of the Bytes in the list are <code>null</code>.
+     * @param input A List of Byte values, where no Byte is <code>null</code>.
+     * @return An array where every byte corresponds to the Byte value at the same position in the list.
+     */
+    private static byte[] listToArray(List<Byte> input) {
+        int fullLength = input.size();
+        byte[] res = new byte[fullLength];
+        for (int i = 0; i < fullLength; i++) {
+            res[i] = input.get(i);
+        }
+        return res;
+    }
+
 }
 
 abstract class AssociationElement {
-    protected byte[] getBytes(byte itemType, String uid) {
+    protected List<Byte> getBytes(byte itemType, String uid) {
         // This code is based upon the information in Pianykh, p183 and further.
         // It first describes Abstract Syntaxes in DICOM Assocations, on p183.
         // It then explains that What applies to these (regarding length fields and byte ordering), also applies to Transfer Syntaxes and Application Contexts.
 
         // Note: in this case, the length of the UID does not have to be an even number of bytes. (Pianykh, p183).
         int len = uid.length();
-        byte[] res = new byte[4 + len];
-        res[0] = itemType;
-        res[1] = 0x00; // Reserved
+
+        List<Byte> res = new ArrayList<>();
+        res.add(itemType);
+        res.add((byte) 0x00); // Reserved
         // "The last (fourth) field contains the L bytes of the Abstract Syntax name" (Pianykh, p183).
-        res[2] = (byte) ((len & 0xFF00) >> 8);
-        res[3] = (byte) (len & 0x00FF);
+        res.add((byte) ((len & 0xFF00) >> 8));
+        res.add((byte)  (len & 0x00FF)      );
         for (int i = 0; i < len; i++ ){
-            res[i + 3] = (byte) uid.charAt(i);
+            res.add((byte) uid.charAt(i));
         }
         return res;
     }
@@ -52,7 +188,7 @@ class AbstractSyntax extends AssociationElement {
         this.uid = uid;
     }
 
-    public byte[] getBytes( ) {
+    public List<Byte> getBytes( ) {
         return getBytes((byte) 0x30 /* Abstract Syntax */, uid);
     }
 }
@@ -65,7 +201,7 @@ class TransferSyntax extends AssociationElement {
         this.uid = uid;
     }
 
-    public byte[] getBytes( ) {
+    public List<Byte> getBytes( ) {
         return getBytes((byte) 0x40 /* Transfer Syntax */, uid);
     }
 }
@@ -81,7 +217,7 @@ class ApplicationContext extends AssociationElement {
         }
     }
 
-    public byte[] getBytes( ) {
+    public List<Byte> getBytes( ) {
         return getBytes((byte) 0x10 /* Transfer Syntax*/, uid);
     }
 }
@@ -107,51 +243,42 @@ class PresentationContext {
      * @param isAssociateRQ Set to <code>true</code> if the Presentation Context is to be part of an A-Associate-RQ, to <code>false</code> if it is to be part of an A-Associate-AC.
      * @return The byte representation of the given Presentation Context.
      */
-    public byte[] getBytes(boolean isAssociateRQ) {
+    public List<Byte> getBytes(boolean isAssociateRQ) {
 
         int len = 8; // The number of bytes that we will need. It's 8 + length of Abstract Syntax + cumulative length of Transfer Syntaxes.
 
         // Determine the byte representation of the Abstract Syntax.
         // Add it's length to the total number of bytes that we will need.
-        byte[] abstractSyntaxBytes = abstractSyntax.getBytes();
-        len += abstractSyntaxBytes.length;
+        List<Byte> abstractSyntaxBytes = abstractSyntax.getBytes();
+        len += abstractSyntaxBytes.size();
 
         // Determine the byte representation of all Transfer Syntaxes.
         // Keep track of their cumulative length.
-        List<byte[]> allTransferSyntaxBytes = new ArrayList<>();
+        List<Byte> allTransferSyntaxBytes = new ArrayList<>();
         for (TransferSyntax transferSyntax : transferSyntaxes) {
-            byte[] currentTransferSyntaxBytes = transferSyntax.getBytes();
-            allTransferSyntaxBytes.add(currentTransferSyntaxBytes);
-            len += currentTransferSyntaxBytes.length;
+            List<Byte> currentTransferSyntaxBytes = transferSyntax.getBytes();
+            allTransferSyntaxBytes.addAll(currentTransferSyntaxBytes);
         }
+        len += allTransferSyntaxBytes.size();
 
         // With these preparations, we can start building the Presentation Context.
         // First, the 8 bytes that define it as a Presentation Context.
-        byte[] res = new byte[len];
+        List<Byte> res = new ArrayList<>();
 
-        res[0] = (byte) (isAssociateRQ ? 0x20 : 0x21); // 0x20h must be used when the Presentation Context is part of an A-Associate-RQ, 0x21h must be used if it is part of an A-Associate-AC.
-        res[1] = 0x00;
-        res[2] = (byte) ((len & 0xFF00) >> 8);
-        res[3] = (byte) (len & 0x00FF);
-        res[4] = presentationContextID;
-        res[5] = 0x00;
-        res[6] = 0x00;
-        res[7] = 0x00;
+        res.add((byte) (isAssociateRQ ? 0x20 : 0x21)); // 0x20h must be used when the Presentation Context is part of an A-Associate-RQ, 0x21h must be used if it is part of an A-Associate-AC.
+        res.add((byte) 0x00);
+        res.add((byte) ((len & 0xFF00) >> 8));
+        res.add((byte)  (len & 0x00FF)      );
+        res.add(presentationContextID);
+        res.add((byte) 0x00);
+        res.add((byte) 0x00);
+        res.add((byte) 0x00);
 
         // Second, the byte representation of the Abstract Syntax.
-        for (int i = 0; i < abstractSyntaxBytes.length; i++) {
-            res[8 + i] = abstractSyntaxBytes[i];
-        }
+        res.addAll(abstractSyntaxBytes);
 
         // Third and last, the byte representation of the Transfer Syntaxes.
-        int offset = 8 + abstractSyntaxBytes.length;
-        for (byte[] currentTransferSyntaxBytes : allTransferSyntaxBytes) {
-
-            for (int i = 0; i < currentTransferSyntaxBytes.length; i++) {
-                res[offset + i] = currentTransferSyntaxBytes[i];
-            }
-            offset += currentTransferSyntaxBytes.length;
-        }
+        res.addAll(allTransferSyntaxBytes);
 
         return res;
     }
@@ -173,7 +300,7 @@ class UserInformation {
         //TODO!+
     }
 
-    byte[] getBytes() {
+    List<Byte> getBytes() {
 
         // Maximum PDU length
         // DICOM definition: http://dicom.nema.org/medical/dicom/current/output/chtml/part08/chapter_D.html
@@ -218,13 +345,7 @@ class UserInformation {
         masterList.addAll(scuScpRoleBytes);
         masterList.addAll(extendedNegotiationBytes);
 
-        int fullLength = masterList.size();
-        byte[] res = new byte[fullLength];
-        for (int i = 0; i < fullLength; i++) {
-            res[i] = masterList.get(i);
-        }
-
-        return res;
+        return masterList;
     }
 
     private List<Byte> determineMaxPDULengthBytes( ) {
@@ -285,6 +406,11 @@ class UserInformation {
         return res;
     }
 
+
+    // "This Sub-Item is optional and if supported, one or more SCP/SCU Role Selection Sub-Items may be present in the User Data Item of the A-ASSOCIATE-RQ."
+    // Source: http://dicom.nema.org/medical/dicom/current/output/chtml/part07/sect_D.3.3.4.html
+    // So... when we get to implementing this one, we need to do it in a loop.... for now, make it empty.
+    // Since this one may be parameterized, we should perhaps let every call create ONE so-called sub-item. And then allow multiple calls.
     private List<Byte> determineScuScpRoleBytes() {
         List<Byte> res = new ArrayList<>();
 
@@ -293,6 +419,11 @@ class UserInformation {
         return res;
     }
 
+    // "The SOP Class Extended Negotiation allows, at Association establishment, peer DICOM AEs to exchange application information defined by specific Service Class specifications.
+    //  This is an optional feature that various Service Classes may or may not choose to support."
+    // Source: http://dicom.nema.org/medical/dicom/current/output/chtml/part07/sect_D.3.3.5.html
+    // So.. it seems that this one, too, is a 0-or-more-iterations thing. Again, for now, make it empty.
+    // Since this one may be parameterized, we should perhaps let every call create ONE so-called sub-item. And then allow multiple calls.
     private List<Byte> determineExtendedNegotiationBytes() {
         List<Byte> res = new ArrayList<>();
 

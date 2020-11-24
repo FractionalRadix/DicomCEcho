@@ -26,6 +26,13 @@ class DicomEchoRequest {
         Log.d(TAG, "Entered method sendEchoRequest(URL)");
         Log.d(TAG, "address==" + address);
         Log.d(TAG, "Port==" + port);
+
+        String callingAETitle = "ECHOSCU"; //TODO!~ Get this from user input.
+        String calledAETitle = "ECHOSCP";  //TODO!~ Get this from user input.
+        PresentationContext presentationContext = Associator.presentationContextForEcho();
+        Associator.sendAAssociateRQ(callingAETitle, calledAETitle, address, port, presentationContext);
+
+        /*
         try {
             Socket socket = new Socket(address, port);
             socket.setSoTimeout(5000); // Timeout in milliseconds.
@@ -92,6 +99,7 @@ class DicomEchoRequest {
             callback.onComplete(result);
             return;
         }
+         */
     }
 }
 
