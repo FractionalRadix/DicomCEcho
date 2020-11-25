@@ -5,8 +5,11 @@ import android.util.Log;
 
 import androidx.annotation.NonNull;
 
+import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.net.Socket;
 import java.net.SocketException;
 import java.net.UnknownHostException;
@@ -29,7 +32,7 @@ public class Associator {
         return new PresentationContext(presentationContextID, abstractSyntax, transferSyntax1, transferSyntax2);
     }
 
-    static void sendAAssociateRQ(String callingAETitle, String calledAETitle, String host, int port, PresentationContext... presentationContexts) {
+    static EchoResult openDicomAssociation(String callingAETitle, String calledAETitle, String host, int port, PresentationContext... presentationContexts) {
 
         //TODO!+ Add a field to the XML where the user can optionally specify a "Called AE" name.
         // ...because some DICOM hosts use a whitelist that only checks for the AE Title...
@@ -37,37 +40,77 @@ public class Associator {
         // 1. Calculate the bytes for the A-Associate-RQ, and send them to the called AE.
         List<Byte> AAssociateRQ = calculateAAsociateRQBytes(callingAETitle, calledAETitle, presentationContexts);
 
-
         byte[] requestBytes = listToArray(AAssociateRQ);
         try {
             Socket socket = new Socket(host, port);
-            socket.setSoTimeout(5000); // Timeout in milliseconds.
+            socket.setSoTimeout(15000); // Timeout in milliseconds.
 
             // Try-with-resources requires API level 19, currently supported minimum is 14.
-            BufferedOutputStream bos = new BufferedOutputStream(socket.getOutputStream());
+            OutputStream bos = new BufferedOutputStream(socket.getOutputStream());
+            InputStream bis = socket.getInputStream(); // new BufferedInputStream(socket.getInputStream());
             bos.write(requestBytes, 0, requestBytes.length);
-            //bos.flush();
-            //bos.close(); //TODO?~ Should this be done here? Also, didn't close() automatically flush() ?
+
+            // Receive the response, hopefully an A-Associate-AC. Note that it can also be A-Associate-RQ or A-Associate-ABORT.
+            Log.i(TAG, "Association request sent, awaiting response...");
+            List<Byte> serverResponse = new ArrayList<>();
+            try {
+                //TODO!~ NAIVE SOLUTION: Just read all.
+
+                // For debugging.
+                StringBuffer strBytesInHex = new StringBuffer();
+                int cnt = 0;
+
+                int ch;
+                Log.i(TAG, "Entering while loop...");
+                do{
+                    ch = bis.read();
+                    Log.i(TAG, "ch=="+ch);
+                    if ( ch == -1)
+                        break;
+
+                    Log.i(TAG, Converter.byteToHexString((byte) ch));
+                    serverResponse.add((byte) ch);
+
+                    // For debugging
+                    strBytesInHex.append(Converter.byteToHexString((byte) ch) + " ");
+                    cnt++;
+                    if (cnt > 16) {
+                        Log.i(TAG, strBytesInHex.toString());
+                        cnt = 0;
+                        strBytesInHex = new StringBuffer("");
+                    }
+                } while (ch != -1);
+
+                Log.i(TAG, "Leaving while loop.");
+                byte[] responseBytes = Converter.byteListToByteArray(serverResponse);
+
+                bis.close();
+                bos.close(); //TODO?+ flush it as well? IIRC close() automatically flushes.
+                socket.close();
+
+                return new EchoResult(EchoResult.Status.Success, "C-ECHO-Rsp received successfully!", responseBytes);
+
+            } catch (IOException exc) {
+                //TODO!~ more end-user friendly error message
+                Log.e(TAG, exc.toString());
+                return new EchoResult(EchoResult.Status.Failure, "I/O Exception while trying to receive server response.", null);
+            }
         }
         catch (SocketException exc) {
-            //TODO!+
+            //TODO!~ more end-user friendly error message
             Log.e(TAG, exc.toString());
+            return new EchoResult(EchoResult.Status.Failure, "Socket Exception while trying to receive server response.", null);
         }
         catch (UnknownHostException exc) {
-            //TODO!+
+            //TODO!~ more end-user friendly error message
             Log.e(TAG, exc.toString());
+            return new EchoResult(EchoResult.Status.Failure, "Unknown host Exception while trying to receive server response.", null);
         }
         catch (IOException exc) {
-            //TODO!+
+            //TODO!~ more end-user friendly error message
             Log.e(TAG, exc.toString());
+            return new EchoResult(EchoResult.Status.Failure, "I/O Exception while trying to receive server response.", null);
         }
-
-        // 2. Await the result.
-        // 3. The result can be: timeout, A-Associate-AC, A-Associate-RJ. Maybe also A-Associate-ABORT, need to figure that one out.
-        //    Interpret the result.
-        // 4. Act corresponding to the result.
-        //    A-Associate-AC means the Assocation is established and can be used. Return the assocation.
-        //    The others mean that for, whatever reason, the Assocation is not established. Inform the user.
     }
 
     private static List<Byte> calculateAAsociateRQBytes(String callingAETitle, String calledAETitle, PresentationContext[] presentationContexts) {
@@ -96,7 +139,6 @@ public class Associator {
         // Note: we may be able to use String.format for a more elegant way of doing the padding:
         //   return String.format("%1$" + length + "s", inputString).replace(' ', '0');
         //   Source: https://www.baeldung.com/java-pad-string
-
 
         String modifiedCallingAETitle = callingAETitle;
         if (modifiedCallingAETitle.length() > 16) {

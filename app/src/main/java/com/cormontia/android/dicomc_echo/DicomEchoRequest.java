@@ -2,12 +2,10 @@ package com.cormontia.android.dicomc_echo;
 
 import android.util.Log;
 
-import java.io.BufferedOutputStream;
+import java.io.BufferedInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.Socket;
-import java.net.SocketTimeoutException;
-import java.net.UnknownHostException;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -27,79 +25,24 @@ class DicomEchoRequest {
         Log.d(TAG, "address==" + address);
         Log.d(TAG, "Port==" + port);
 
+        // Send the A-Associate-RQ.
         String callingAETitle = "ECHOSCU"; //TODO!~ Get this from user input.
         String calledAETitle = "ECHOSCP";  //TODO!~ Get this from user input.
         PresentationContext presentationContext = Associator.presentationContextForEcho();
-        Associator.sendAAssociateRQ(callingAETitle, calledAETitle, address, port, presentationContext);
 
-        /*
-        try {
-            Socket socket = new Socket(address, port);
-            socket.setSoTimeout(5000); // Timeout in milliseconds.
+        //TODO!+ Interpret the result, then act according to it.
+        // 1. The result can be: timeout, A-Associate-AC, A-Associate-RJ, or A-Associate-ABORT.
+        //    Interpret the result.
+        // 2. Act corresponding to the result.
+        //    A-Associate-AC means the Assocation is established and can be used. Return the assocation.
+        //    The others mean that for, whatever reason, the Assocation is not established. Inform the user.
 
-            // Create the C-ECHO request.
-            List<DicomElement> elements = RequestFactory.createEchoRequest();
-            byte[] echoRequestBytes = Converter.binaryRepresentation(elements);
+        // Until we have implemented the above two steps...
 
-            //TODO!- FOR DEBUGGING
-            //logBytesAsHexString(echoRequestBytes);
+        EchoResult res = Associator.openDicomAssociation(callingAETitle, calledAETitle, address, port, presentationContext);
+        callback.onComplete(res);
+        return;
 
-            // Try-with-resources requires API level 19, currently supported minimum is 14.
-            BufferedOutputStream bos = new BufferedOutputStream(socket.getOutputStream());
-            bos.write(echoRequestBytes, 0, echoRequestBytes.length);
-            bos.flush();
-            bos.close(); //TODO?~ Should this be done here? Also, didn't close() automatically flush() ?
-
-            // Wait for the C-ECHO Response (if any).
-            // When the C-ECHO Response is in, parse it.
-            // (Not that there is much to parse in a C-ECHO Response...)
-            // If the Response doesn't arrive, or is somehow wrong... we need to report this to the user.
-            // If the Response is received properly, we also need to report this to the user.
-
-            List<Byte> serverResponse = new ArrayList<>();
-            InputStream bis = socket.getInputStream();
-            //TODO!~ NAIVE SOLUTION: Just read all.
-            //   Need some sort of timeout. Or parse while reading.
-            int ch;
-            while ((ch = bis.read()) != -1) {
-                Log.i(TAG, Converter.byteToHexString((byte) ch));
-                serverResponse.add((byte) ch);
-            }
-            byte[] responseBytes = Converter.byteListToByteArray(serverResponse);
-
-            EchoResult result = new EchoResult(EchoResult.Status.Success, "C-ECHO-Rsp received successfully!", responseBytes);
-            callback.onComplete(result);
-            return;
-        } catch (SocketTimeoutException exc) {
-            Log.e(TAG, "Socket timeout exception.");
-            String timeoutMsg = "Timeout. Please check if the specified host and port are correct, and if the server is available.";
-            EchoResult result = new EchoResult(EchoResult.Status.Failure, timeoutMsg, null);
-            callback.onComplete(result);
-            return;
-        } catch (UnknownHostException exc) {
-            Log.e(TAG, "Unknown host exception.");
-            EchoResult result = new EchoResult(EchoResult.Status.Failure, "Unknown host.", null);
-            callback.onComplete(result);
-            return;
-        } catch (SecurityException exc) {
-            Log.e(TAG, "Security exception." + exc.toString());
-            EchoResult result = new EchoResult(EchoResult.Status.Failure, "Failed to get response, due to security reasons.", null);
-            callback.onComplete(result);
-            return;
-        } catch (IllegalArgumentException exc) {
-            Log.e(TAG, "Illegal Argument Exception." + exc.toString());
-            EchoResult result = new EchoResult(EchoResult.Status.Failure, "Failed to get response, wrong arguments (were server and port number specified correctly?)", null);
-            callback.onComplete(result);
-            return;
-        } catch (IOException exc) {
-            Log.e(TAG, "I/O exception in method sendEchoRequest()");
-            Log.e(TAG, exc.getMessage());
-            Log.e(TAG, exc.toString());
-            EchoResult result = new EchoResult(EchoResult.Status.Failure, "An I/O error occurred while sending/receiving the C-ECHO. Please check your network and try again.", null);
-            callback.onComplete(result);
-            return;
-        }
-         */
     }
 }
 
