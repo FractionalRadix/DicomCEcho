@@ -29,7 +29,7 @@ public class Associator {
         AbstractSyntax abstractSyntax = new AbstractSyntax(DicomUIDs.verificationSOPClass);
         TransferSyntax transferSyntax1 = new TransferSyntax(DicomUIDs.implicitVRLittleEndian);
         TransferSyntax transferSyntax2 = new TransferSyntax(DicomUIDs.explicitVRLittleEndian);
-        return new PresentationContext(presentationContextID, abstractSyntax, transferSyntax1, transferSyntax2);
+        return new PresentationContext(presentationContextID, abstractSyntax, transferSyntax1 /*, transferSyntax2 */);
     }
 
     static EchoResult openDicomAssociation(String callingAETitle, String calledAETitle, String host, int port, PresentationContext... presentationContexts) {
@@ -217,7 +217,7 @@ abstract class AssociationElement {
     protected List<Byte> getBytes(byte itemType, String uid) {
         // This code is based upon the information in Pianykh, p183 and further.
         // It first describes Abstract Syntaxes in DICOM Assocations, on p183.
-        // It then explains that What applies to these (regarding length fields and byte ordering), also applies to Transfer Syntaxes and Application Contexts.
+        // It then explains that what applies to these (regarding length fields and byte ordering), also applies to Transfer Syntaxes and Application Contexts.
 
         // Note: in this case, the length of the UID does not have to be an even number of bytes. (Pianykh, p183).
         int len = uid.length();
@@ -228,7 +228,7 @@ abstract class AssociationElement {
         // "The last (fourth) field contains the L bytes of the Abstract Syntax name" (Pianykh, p183).
         res.add((byte) ((len & 0xFF00) >> 8));
         res.add((byte)  (len & 0x00FF)      );
-        for (int i = 0; i < len; i++ ){
+        for (int i = 0; i < len; i++ ) {
             res.add((byte) uid.charAt(i));
         }
         return res;
@@ -300,12 +300,16 @@ class PresentationContext {
      */
     public List<Byte> getBytes(boolean isAssociateRQ) {
 
-        int len = 8; // The number of bytes that we will need. It's 8 + length of Abstract Syntax + cumulative length of Transfer Syntaxes.
+        int len = 4; // The number of bytes that we will need. It's 4 + length of Abstract Syntax + cumulative length of Transfer Syntaxes.
+
+        Log.i("PR.CTX. Len", "len=="+len);
 
         // Determine the byte representation of the Abstract Syntax.
         // Add it's length to the total number of bytes that we will need.
         List<Byte> abstractSyntaxBytes = abstractSyntax.getBytes();
         len += abstractSyntaxBytes.size();
+        Log.i("PR.CTX. Len",  "Abstract syntax bytes length=="+abstractSyntaxBytes.size());
+        Log.i("PR.CTX. Len", "len=="+len);
 
         // Determine the byte representation of all Transfer Syntaxes.
         // Keep track of their cumulative length.
@@ -315,6 +319,8 @@ class PresentationContext {
             allTransferSyntaxBytes.addAll(currentTransferSyntaxBytes);
         }
         len += allTransferSyntaxBytes.size();
+        Log.i("PR.CTX. Len",  "Transfer syntaxes bytes length=="+allTransferSyntaxBytes.size());
+        Log.i("PR.CTX. Len", "len=="+len);
 
         // With these preparations, we can start building the Presentation Context.
         // First, the 8 bytes that define it as a Presentation Context.
@@ -331,10 +337,20 @@ class PresentationContext {
 
         // Second, the byte representation of the Abstract Syntax.
         res.addAll(abstractSyntaxBytes);
+        //TODO!- Added for debugging:
+        StringBuffer hexBuf = new StringBuffer("");
+        for (int i = 0; i < abstractSyntaxBytes.size(); i++) {
+            hexBuf.append(String.format("%02x ", abstractSyntaxBytes.get(i)));
+        }
+        Log.i("ABSTR SYNTAX", hexBuf.toString());
 
         // Third and last, the byte representation of the Transfer Syntaxes.
         res.addAll(allTransferSyntaxBytes);
-
+        hexBuf = new StringBuffer("");
+        for (int i = 0; i < allTransferSyntaxBytes.size(); i++) {
+            hexBuf.append(String.format("%02x ", allTransferSyntaxBytes.get(i)));
+        }
+        Log.i("TRANSF SYNTAXES", hexBuf.toString());
         return res;
     }
 }

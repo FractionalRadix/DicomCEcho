@@ -34,7 +34,9 @@ class DicomEchoRequest {
         // 1. The result can be: timeout, A-Associate-AC, A-Associate-RJ, or A-Associate-ABORT.
         //    Interpret the result.
         // 2. Act corresponding to the result.
-        //    A-Associate-AC means the Assocation is established and can be used. Return the assocation.
+        //    A-Associate-AC means the Assocation is established and can be used.
+        //      Create a class with the parameters for this DICOM association.
+        //      Then send a Verification message using these parameters, wait for the response, and interpret it.
         //    The others mean that for, whatever reason, the Assocation is not established. Inform the user.
 
         // Until we have implemented the above two steps...
