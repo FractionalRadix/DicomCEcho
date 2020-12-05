@@ -49,6 +49,9 @@ public class Associator {
             OutputStream bos = new BufferedOutputStream(socket.getOutputStream());
             InputStream bis = socket.getInputStream(); // new BufferedInputStream(socket.getInputStream());
             bos.write(requestBytes, 0, requestBytes.length);
+            bos.flush();
+
+            Toolbox.logBytes(requestBytes);
 
             // Receive the response, hopefully an A-Associate-AC. Note that it can also be A-Associate-RQ or A-Associate-ABORT.
             Log.i(TAG, "Association request sent, awaiting response...");
@@ -126,13 +129,21 @@ public class Associator {
 
         int len = 2 + 2 + 16 + 16 + 32 + applicationContextItemBytes.size() + allPresentationContextsBytes.size() + userInformationBytes.size();
 
+        // Source: http://dicom.nema.org/medical/dicom/current/output/chtml/part08/sect_9.3.2.html
         List<Byte> AAssociateRQ = new ArrayList<>();
+        // Byte 0: PDU type
         AAssociateRQ.add((byte) 0x01);
+        // Byte 1: Reserved
         AAssociateRQ.add((byte) 0x00);
-        AAssociateRQ.add((byte) ((len & 0xFF00) >> 8));
-        AAssociateRQ.add((byte) ((len & 0x00FF)     ));
+        // Bytes 3-6: PDU length
+        AAssociateRQ.add((byte) ((len & 0xFF000000) >> 24));
+        AAssociateRQ.add((byte) ((len & 0x00FF0000) >> 16));
+        AAssociateRQ.add((byte) ((len & 0x0000FF00) >>  8));
+        AAssociateRQ.add((byte) ((len & 0x000000FF)      ));
+        // Bytes 7-8: Protocol version
         AAssociateRQ.add((byte) 0x00); // Protocol version, high byte
-        AAssociateRQ.add((byte) 0x00); // Protocol version, low byte
+        AAssociateRQ.add((byte) 0x01); // Protocol version, low byte
+        // Bytes 9-10: Reserved
         AAssociateRQ.add((byte) 0x00);
         AAssociateRQ.add((byte) 0x00);
 
@@ -140,15 +151,7 @@ public class Associator {
         //   return String.format("%1$" + length + "s", inputString).replace(' ', '0');
         //   Source: https://www.baeldung.com/java-pad-string
 
-        String modifiedCallingAETitle = callingAETitle;
-        if (modifiedCallingAETitle.length() > 16) {
-            modifiedCallingAETitle = modifiedCallingAETitle.substring(0,16);
-        }
-        for (int i = modifiedCallingAETitle.length(); i < 16; i++ ) {
-            modifiedCallingAETitle += ' ';
-        }
-        AAssociateRQ = addString(AAssociateRQ, modifiedCallingAETitle);
-
+        // Bytes 11-26: Called AE Title
         String modifiedCalledAETitle = calledAETitle;
         if (modifiedCalledAETitle.length() > 16) {
             modifiedCalledAETitle = modifiedCalledAETitle.substring(0, 16);
@@ -158,6 +161,23 @@ public class Associator {
         }
         AAssociateRQ = addString(AAssociateRQ, modifiedCalledAETitle);
 
+        // Bytes 27-42: Caling AE Title
+        String modifiedCallingAETitle = callingAETitle;
+        if (modifiedCallingAETitle.length() > 16) {
+            modifiedCallingAETitle = modifiedCallingAETitle.substring(0,16);
+        }
+        for (int i = modifiedCallingAETitle.length(); i < 16; i++ ) {
+            modifiedCallingAETitle += ' ';
+        }
+        AAssociateRQ = addString(AAssociateRQ, modifiedCallingAETitle);
+
+        // Bytes 43-74: Reserved
+        for (int i = 43; i <= 74; i++) {
+            AAssociateRQ.add((byte) 0);
+        }
+
+        // Bytes 75-xxx: Variable items.
+        // "This variable field shall contain the following items: one Application Context Item, one or more Presentation Context Items and one User Information Item."
         AAssociateRQ.addAll(applicationContextItemBytes);
         AAssociateRQ.addAll(allPresentationContextsBytes);
         AAssociateRQ.addAll(userInformationBytes);
