@@ -5,7 +5,6 @@ import android.util.Log;
 
 import androidx.annotation.NonNull;
 
-import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -32,15 +31,15 @@ public class Associator {
         return new PresentationContext(presentationContextID, abstractSyntax, transferSyntax1 /*, transferSyntax2 */);
     }
 
-    static EchoResult openDicomAssociation(String callingAETitle, String calledAETitle, String host, int port, PresentationContext... presentationContexts) {
+    static DicomAssociationRequestResult openDicomAssociation(String callingAETitle, String calledAETitle, String host, int port, PresentationContext... presentationContexts) {
 
-        //TODO!+ Add a field to the XML where the user can optionally specify a "Called AE" name.
+        //TODO!+ Add a field to the Android Layout XML where the user can optionally specify a "Called AE" name.
         // ...because some DICOM hosts use a whitelist that only checks for the AE Title...
 
         // 1. Calculate the bytes for the A-Associate-RQ, and send them to the called AE.
         List<Byte> AAssociateRQ = calculateAAsociateRQBytes(callingAETitle, calledAETitle, presentationContexts);
 
-        byte[] requestBytes = listToArray(AAssociateRQ);
+        byte[] requestBytes = Converter.listToArray(AAssociateRQ);
         try {
             Socket socket = new Socket(host, port);
             socket.setSoTimeout(15000); // Timeout in milliseconds.
@@ -91,28 +90,105 @@ public class Associator {
                 bos.close(); //TODO?+ flush it as well? IIRC close() automatically flushes.
                 socket.close();
 
-                return new EchoResult(EchoResult.Status.Success, "C-ECHO-Rsp received successfully!", responseBytes);
-
+                return interpretAssociationResponse(responseBytes);
             } catch (IOException exc) {
                 //TODO!~ more end-user friendly error message
                 Log.e(TAG, exc.toString());
-                return new EchoResult(EchoResult.Status.Failure, "I/O Exception while trying to receive server response.", null);
+                return new NetworkingFailure(NetworkingFailure.Status.Failure, "I/O Exception while trying to receive server response.", null);
             }
         }
         catch (SocketException exc) {
             //TODO!~ more end-user friendly error message
             Log.e(TAG, exc.toString());
-            return new EchoResult(EchoResult.Status.Failure, "Socket Exception while trying to receive server response.", null);
+            return new NetworkingFailure(NetworkingFailure.Status.Failure, "Socket Exception while trying to receive server response.", null);
         }
         catch (UnknownHostException exc) {
             //TODO!~ more end-user friendly error message
             Log.e(TAG, exc.toString());
-            return new EchoResult(EchoResult.Status.Failure, "Unknown host Exception while trying to receive server response.", null);
+            return new NetworkingFailure(NetworkingFailure.Status.Failure, "Unknown host Exception while trying to receive server response.", null);
         }
         catch (IOException exc) {
             //TODO!~ more end-user friendly error message
             Log.e(TAG, exc.toString());
-            return new EchoResult(EchoResult.Status.Failure, "I/O Exception while trying to receive server response.", null);
+            return new NetworkingFailure(NetworkingFailure.Status.Failure, "I/O Exception while trying to receive server response.", null);
+        }
+    }
+
+    private static DicomAssociationRequestResult interpretAssociationResponse(@NonNull byte[] bytes) {
+
+        if (bytes.length == 0) {
+            //TODO!+ Error.
+            return null;
+        }
+
+        byte type = bytes[0];
+        switch (type) {
+            case 0x02:
+                //TODO!+ Process A-Associate-AC.
+                // Maybe this section should be in a separate method.
+                // Parse the Abstract Syntax and the selected Transfer Syntax.
+                //TODO!+ Verify that we have at least 6 bytes in the response.
+                int lenHighestByte       = ((int) bytes[2]) << 24;
+                int lenSecondHighestByte = ((int) bytes[3]) << 16;
+                int lenThirdHighestByte  = ((int) bytes[4]) <<  8;
+                int lenLowestByte        = (int) bytes[5];
+
+
+                Log.i(TAG, "A-Associate-AC. Bytes: "+lenHighestByte + ", " + lenSecondHighestByte + ", " + lenThirdHighestByte + ", " + lenLowestByte);
+                int len = lenHighestByte + lenSecondHighestByte + lenThirdHighestByte + lenLowestByte;
+                Log.i(TAG, "Total length: " + len);
+
+                //TODO!+ Verify that the bytes.length == 6 + len
+
+                int protocolVersion = (((int) bytes[6]) << 8) + ((int) bytes[7]);
+
+                // Bytes 8 and 9 should be set to 0.
+                // Bytes 10-25 are the Called AE Title, but "should not be tested".
+                StringBuffer calledAETitle = new StringBuffer("");
+                for (int i = 0; i < 16; i++) {
+                    calledAETitle.append(bytes[i+10]);
+                }
+                //TODO!+ Make sure that AE Titles cannot begin with whitespace... if they can, I need to only trim the TRAILING characteres.
+                String strCalledAETitle = calledAETitle.toString().trim();
+
+                Log.i(TAG, "Called AE Title: " + calledAETitle);
+
+                // Bytes 26-41
+                StringBuffer callingAETitle = new StringBuffer("");
+                for (int i = 0; i < 16; i++) {
+                    callingAETitle.append(bytes[i+26]);
+                }
+                Log.i(TAG, "Calling AE Title: " + callingAETitle);
+                String strCallingAETitle = callingAETitle.toString().trim();
+
+                //TODO!+ Skip 32 bytes containing only 0x00
+
+                //TODO!+ Parse the Application Context Item
+                //TODO!+ Parse the Presentation Context Items.
+                //  Note that there can be MULTIPLE Presentation Context Items. But each should contain only ONE Abstract Syntax (well duh) and only ONE Transfer Syntax.
+                PresentationContext presentationContext = null; //TODO!+
+                //TODO!+ Parse the User Information Item.
+
+                return new DicomAssociation(strCalledAETitle, strCallingAETitle, presentationContext);
+
+                //break;
+            case 0x03:
+                //TODO!+ Process A-Associate-RJ
+                //TODO!+ Test that the length of the message is 10.
+                //TODO!+ Test that the bytes 2-5 (inclusive) form "00 00 00 04"
+                byte result = bytes[7];
+                byte source = bytes[8];
+                byte reason = bytes[9];
+                return new DicomAssocationRejection(result, source, reason);
+                //break;
+            case 0x07:
+                //TODO!+ Process A-Abort
+                return new DicomAssociationAbort();
+                //break;
+            default:
+                //TODO!+ Things went thoroughly wrong here, process that...
+                return null; //TODO?~
+                //break;
         }
     }
 
@@ -159,7 +235,7 @@ public class Associator {
         for (int i = modifiedCalledAETitle.length(); i < 16; i++) {
             modifiedCalledAETitle += ' ';
         }
-        AAssociateRQ = addString(AAssociateRQ, modifiedCalledAETitle);
+        AAssociateRQ = Toolbox.addString(AAssociateRQ, modifiedCalledAETitle);
 
         // Bytes 27-42: Caling AE Title
         String modifiedCallingAETitle = callingAETitle;
@@ -169,7 +245,7 @@ public class Associator {
         for (int i = modifiedCallingAETitle.length(); i < 16; i++ ) {
             modifiedCallingAETitle += ' ';
         }
-        AAssociateRQ = addString(AAssociateRQ, modifiedCallingAETitle);
+        AAssociateRQ = Toolbox.addString(AAssociateRQ, modifiedCallingAETitle);
 
         // Bytes 43-74: Reserved
         for (int i = 43; i <= 74; i++) {
@@ -184,97 +260,6 @@ public class Associator {
         return AAssociateRQ;
     }
 
-    /** Primitive conversion of String to List&lt;Byte&gt; .
-     * Does not support characters that won't fit in a byte.
-     * @param list A List of bytes, to which the characters in the string will be appended.
-     * @param str A string, whose individual characters need to be added to the given list.
-     * @return The input string, with the bytes for the characters in the string appended at the end.
-     */
-    private static List<Byte> addString(List<Byte> list, String str) {
-        for(char ch : str.toCharArray()) {
-            list.add((byte) ch);
-        }
-        return list;
-    }
-
-    /** Primitive conversion of List&lt;Byte&gt; to byte[].
-     * It is assumed that none of the Bytes in the list are <code>null</code>.
-     * @param input A List of Byte values, where no Byte is <code>null</code>.
-     * @return An array where every byte corresponds to the Byte value at the same position in the list.
-     */
-    private static byte[] listToArray(List<Byte> input) {
-        int fullLength = input.size();
-        byte[] res = new byte[fullLength];
-        for (int i = 0; i < fullLength; i++) {
-            res[i] = input.get(i);
-        }
-        return res;
-    }
-
-}
-
-abstract class AssociationElement {
-    protected List<Byte> getBytes(byte itemType, String uid) {
-        // This code is based upon the information in Pianykh, p183 and further.
-        // It first describes Abstract Syntaxes in DICOM Assocations, on p183.
-        // It then explains that what applies to these (regarding length fields and byte ordering), also applies to Transfer Syntaxes and Application Contexts.
-
-        // Note: in this case, the length of the UID does not have to be an even number of bytes. (Pianykh, p183).
-        int len = uid.length();
-
-        List<Byte> res = new ArrayList<>();
-        res.add(itemType);
-        res.add((byte) 0x00); // Reserved
-        // "The last (fourth) field contains the L bytes of the Abstract Syntax name" (Pianykh, p183).
-        res.add((byte) ((len & 0xFF00) >> 8));
-        res.add((byte)  (len & 0x00FF)      );
-        for (int i = 0; i < len; i++ ) {
-            res.add((byte) uid.charAt(i));
-        }
-        return res;
-    }
-}
-
-class AbstractSyntax extends AssociationElement {
-
-    private final String uid;
-
-    AbstractSyntax(@NonNull String uid) {
-        this.uid = uid;
-    }
-
-    public List<Byte> getBytes( ) {
-        return getBytes((byte) 0x30 /* Abstract Syntax */, uid);
-    }
-}
-
-class TransferSyntax extends AssociationElement {
-
-    private final String uid;
-
-    TransferSyntax(@NonNull String uid) {
-        this.uid = uid;
-    }
-
-    public List<Byte> getBytes( ) {
-        return getBytes((byte) 0x40 /* Transfer Syntax */, uid);
-    }
-}
-
-class ApplicationContext extends AssociationElement {
-    private final String uid;
-
-    ApplicationContext(String uid) {
-        if (uid == null) {
-            this.uid = DicomUIDs.dicomApplicationContextName;
-        } else {
-            this.uid = uid;
-        }
-    }
-
-    public List<Byte> getBytes( ) {
-        return getBytes((byte) 0x10 /* Transfer Syntax*/, uid);
-    }
 }
 
 class PresentationContext {

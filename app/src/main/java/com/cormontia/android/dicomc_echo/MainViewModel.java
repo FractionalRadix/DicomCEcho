@@ -29,7 +29,7 @@ public class MainViewModel extends ViewModel {
         Log.d(TAG, "In MainViewModel.sendEchoRequest(host,port).");
         EchoRequestCallback callback = new EchoRequestCallback() {
             @Override
-            public void onComplete(EchoResult result) {
+            public void onComplete(NetworkingFailure result) {
                 // "setValue()" cannot be invoked on a background thread, so we need either postValue() or a Handler.
                 Log.d(TAG, "In EchoRequestCallback.onComplete(EchoResult).");
                 //echoResult.postValue("(Message #" + counter + ") " + result.getMessage());

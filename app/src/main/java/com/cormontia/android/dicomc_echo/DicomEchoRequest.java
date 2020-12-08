@@ -2,11 +2,6 @@ package com.cormontia.android.dicomc_echo;
 
 import android.util.Log;
 
-import java.io.BufferedInputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.net.Socket;
-import java.util.ArrayList;
 import java.util.List;
 
 class DicomEchoRequest {
@@ -30,42 +25,35 @@ class DicomEchoRequest {
         String calledAETitle = "ECHOSCP";  //TODO!~ Get this from user input.
         PresentationContext presentationContext = Associator.presentationContextForEcho();
 
-        //TODO!+ Interpret the result, then act according to it.
-        // 1. The result can be: timeout, A-Associate-AC, A-Associate-RJ, or A-Associate-ABORT.
-        //    Interpret the result.
-        // 2. Act corresponding to the result.
-        //    A-Associate-AC means the Assocation is established and can be used.
-        //      Create a class with the parameters for this DICOM association.
-        //      Then send a Verification message using these parameters, wait for the response, and interpret it.
-        //    The others mean that for, whatever reason, the Assocation is not established. Inform the user.
+        DicomAssociationRequestResult res = Associator.openDicomAssociation(callingAETitle, calledAETitle, address, port, presentationContext);
+        if (res instanceof NetworkingFailure) {
+            callback.onComplete((NetworkingFailure) res);
+        } else if (res instanceof DicomAssocationRejection) {
+            Log.i(TAG, "DICOM Association was rejected.");
+            //TODO!+ Inform user that DICOM Association was rejected.
+        } else if (res instanceof DicomAssociationAbort) {
+            Log.i(TAG, "DICOM ASsociation was aborted.");
+            //TODO!+
+        } else if (res instanceof DicomAssociation) {
+            Log.i(TAG, "DICOM Association successful!");
+            //TODO!+
+            List<DicomElement> echoRequest = RequestFactory.createEchoRequest(); //TODO?~ Should this be parameterized with the DICOM Assocation, or at least its Transfer Syntax?
+            byte[] echoRequestBytes = Converter.binaryRepresentation(echoRequest);
+            //TODO!+ Send the C-Echo-Rq bytes to the server.
+            //TODO!+ Read the Server's response bytes (if any...), and interpret them.
+            //TODO!+ After the Echo Request is processed, RELEASE the DICOM Association.
+        } else {
+            Log.e(TAG, "Attempted DICOM Association resulted in unhandled case: " + res.getClass().getCanonicalName());
+            //TODO!+ Error!!
+        }
 
-        // Until we have implemented the above two steps...
 
-        EchoResult res = Associator.openDicomAssociation(callingAETitle, calledAETitle, address, port, presentationContext);
-        callback.onComplete(res);
         return;
-
     }
 }
 
-class EchoResult {
-    public enum Status { Failure, Success };
-
-    private Status status;
-    private String messageForUser;
-    private byte[] serverResponse;
-
-    EchoResult(Status status, String msg, byte[] serverResponse) {
-        this.status = status;
-        this.messageForUser = msg;
-        this.serverResponse = serverResponse;
-    }
-
-    public String getMessage( ) {
-        return messageForUser;
-    }
-}
 
 interface EchoRequestCallback {
-    void onComplete(EchoResult result);
+    //TODO?~ Should it be "onComplete(DicomAssiciationRequestResult)" ?
+    void onComplete(NetworkingFailure result);
 }

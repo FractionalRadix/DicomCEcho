@@ -51,4 +51,18 @@ public class Converter {
         }
         return byteArray;
     }
+
+    /** Primitive conversion of List&lt;Byte&gt; to byte[].
+     * It is assumed that none of the Bytes in the list are <code>null</code>.
+     * @param input A List of Byte values, where no Byte is <code>null</code>.
+     * @return An array where every byte corresponds to the Byte value at the same position in the list.
+     */
+    public static byte[] listToArray(List<Byte> input) {
+        int fullLength = input.size();
+        byte[] res = new byte[fullLength];
+        for (int i = 0; i < fullLength; i++) {
+            res[i] = input.get(i);
+        }
+        return res;
+    }
 }

@@ -2,6 +2,8 @@ package com.cormontia.android.dicomc_echo;
 
 import android.util.Log;
 
+import java.util.List;
+
 public class Toolbox {
     public static void logBytes(byte[] bytes) {
 
@@ -36,6 +38,18 @@ public class Toolbox {
             }
         }
 
+    }
 
+    /** Primitive tool for adding the bytes of a String to List&lt;Byte&gt; .
+     * Does not support characters that won't fit in a byte.
+     * @param list A List of bytes, to which the characters in the string will be appended.
+     * @param str A string, whose individual characters need to be added to the given list.
+     * @return The input string, with the bytes for the characters in the string appended at the end.
+     */
+    public static List<Byte> addString(List<Byte> list, String str) {
+        for(char ch : str.toCharArray()) {
+            list.add((byte) ch);
+        }
+        return list;
     }
 }
