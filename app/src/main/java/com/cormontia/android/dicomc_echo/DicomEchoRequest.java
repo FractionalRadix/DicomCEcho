@@ -2,6 +2,7 @@ package com.cormontia.android.dicomc_echo;
 
 import android.util.Log;
 
+import java.io.IOException;
 import java.util.List;
 
 class DicomEchoRequest {
@@ -39,14 +40,19 @@ class DicomEchoRequest {
             //TODO!+
             List<DicomElement> echoRequest = RequestFactory.createEchoRequest(); //TODO?~ Should this be parameterized with the DICOM Assocation, or at least its Transfer Syntax?
             byte[] echoRequestBytes = Converter.binaryRepresentation(echoRequest);
-            //TODO!+ Send the C-Echo-Rq bytes to the server.
-            //TODO!+ Read the Server's response bytes (if any...), and interpret them.
-            //TODO!+ After the Echo Request is processed, RELEASE the DICOM Association.
+            try {
+                byte[] echoResponseBytes = Networking.sendAndReceive(address, port, echoRequestBytes);
+                //TODO!+ Interpret the response bytes...
+                //TODO!+ After the Echo Request is processed, RELEASE the DICOM Association.
+            } catch (IOException exc) {
+                Log.e(TAG, "An error occurred while sending the C-Echo-Rq.");
+                //TODO?~ It can be 3 errors really: SocketException, UnknownHostException, and their generic parent IOException. Give user more detail?
+                Log.e(TAG, exc.toString());
+            }
         } else {
             Log.e(TAG, "Attempted DICOM Association resulted in unhandled case: " + res.getClass().getCanonicalName());
             //TODO!+ Error!!
         }
-
 
         return;
     }

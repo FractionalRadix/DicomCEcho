@@ -5,11 +5,7 @@ import android.util.Log;
 
 import androidx.annotation.NonNull;
 
-import java.io.BufferedOutputStream;
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
-import java.net.Socket;
 import java.net.SocketException;
 import java.net.UnknownHostException;
 import java.util.ArrayList;
@@ -36,66 +32,14 @@ public class Associator {
         //TODO!+ Add a field to the Android Layout XML where the user can optionally specify a "Called AE" name.
         // ...because some DICOM hosts use a whitelist that only checks for the AE Title...
 
-        // 1. Calculate the bytes for the A-Associate-RQ, and send them to the called AE.
+        // Calculate the bytes for the A-Associate-RQ, and send them to the called AE.
         List<Byte> AAssociateRQ = calculateAAsociateRQBytes(callingAETitle, calledAETitle, presentationContexts);
 
+        // Send the A-Associate-RQ to the server.
         byte[] requestBytes = Converter.listToArray(AAssociateRQ);
         try {
-            Socket socket = new Socket(host, port);
-            socket.setSoTimeout(15000); // Timeout in milliseconds.
-
-            // Try-with-resources requires API level 19, currently supported minimum is 14.
-            OutputStream bos = new BufferedOutputStream(socket.getOutputStream());
-            InputStream bis = socket.getInputStream(); // new BufferedInputStream(socket.getInputStream());
-            bos.write(requestBytes, 0, requestBytes.length);
-            bos.flush();
-
-            Toolbox.logBytes(requestBytes);
-
-            // Receive the response, hopefully an A-Associate-AC. Note that it can also be A-Associate-RQ or A-Associate-ABORT.
-            Log.i(TAG, "Association request sent, awaiting response...");
-            List<Byte> serverResponse = new ArrayList<>();
-            try {
-                //TODO!~ NAIVE SOLUTION: Just read all.
-
-                // For debugging.
-                StringBuffer strBytesInHex = new StringBuffer();
-                int cnt = 0;
-
-                int ch;
-                Log.i(TAG, "Entering while loop...");
-                do{
-                    ch = bis.read();
-                    Log.i(TAG, "ch=="+ch);
-                    if ( ch == -1)
-                        break;
-
-                    Log.i(TAG, Converter.byteToHexString((byte) ch));
-                    serverResponse.add((byte) ch);
-
-                    // For debugging
-                    strBytesInHex.append(Converter.byteToHexString((byte) ch) + " ");
-                    cnt++;
-                    if (cnt > 16) {
-                        Log.i(TAG, strBytesInHex.toString());
-                        cnt = 0;
-                        strBytesInHex = new StringBuffer("");
-                    }
-                } while (ch != -1);
-
-                Log.i(TAG, "Leaving while loop.");
-                byte[] responseBytes = Converter.byteListToByteArray(serverResponse);
-
-                bis.close();
-                bos.close(); //TODO?+ flush it as well? IIRC close() automatically flushes.
-                socket.close();
-
-                return interpretAssociationResponse(responseBytes);
-            } catch (IOException exc) {
-                //TODO!~ more end-user friendly error message
-                Log.e(TAG, exc.toString());
-                return new NetworkingFailure(NetworkingFailure.Status.Failure, "I/O Exception while trying to receive server response.", null);
-            }
+            byte[] responseBytes = Networking.sendAndReceive(host, port, requestBytes);
+            return interpretAssociationResponse(responseBytes);
         }
         catch (SocketException exc) {
             //TODO!~ more end-user friendly error message
@@ -438,7 +382,7 @@ class UserInformation {
             res.add((byte) 0x55);
             res.add((byte) 0x00);
             res.add((byte) ((versionLen & 0x0000FF00) >>  8)); // Item length, high byte.
-            res.add((byte) ((versionLen & 0x00000FF))       ); // Item length, low byte.
+            res.add((byte) ((versionLen & 0x000000FF))      ); // Item length, low byte.
             for (int i = 0; i < implementationVersionName.length(); i++) {
                 res.add((byte) implementationVersionName.charAt(i));
             }
