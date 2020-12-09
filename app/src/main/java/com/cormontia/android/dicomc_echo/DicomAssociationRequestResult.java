@@ -76,14 +76,11 @@ class DicomAssociationAbort extends DicomAssociationRequestResult {
  * If an attempt to establish a DICOM Association failed at the network level, this class contains the Exception, as well as possible other information.
  */
 class NetworkingFailure extends DicomAssociationRequestResult {
-    public enum Status { Failure, Success };
 
-    private NetworkingFailure.Status status;
     private String messageForUser;
     private byte[] serverResponse;
 
-    NetworkingFailure(NetworkingFailure.Status status, String msg, byte[] serverResponse) {
-        this.status = status;
+    NetworkingFailure(String msg, byte[] serverResponse) {
         this.messageForUser = msg;
         this.serverResponse = serverResponse;
     }

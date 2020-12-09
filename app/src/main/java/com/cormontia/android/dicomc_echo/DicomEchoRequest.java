@@ -26,7 +26,9 @@ class DicomEchoRequest {
         String calledAETitle = "ECHOSCP";  //TODO!~ Get this from user input.
         PresentationContext presentationContext = Associator.presentationContextForEcho();
 
+        Log.i(TAG, "Opening DICOM Association.");
         DicomAssociationRequestResult res = Associator.openDicomAssociation(callingAETitle, calledAETitle, address, port, presentationContext);
+        Log.i(TAG, "Completed attempt to open DICOM Association.");
         if (res instanceof NetworkingFailure) {
             callback.onComplete((NetworkingFailure) res);
         } else if (res instanceof DicomAssocationRejection) {
@@ -41,7 +43,9 @@ class DicomEchoRequest {
             List<DicomElement> echoRequest = RequestFactory.createEchoRequest(); //TODO?~ Should this be parameterized with the DICOM Assocation, or at least its Transfer Syntax?
             byte[] echoRequestBytes = Converter.binaryRepresentation(echoRequest);
             try {
-                byte[] echoResponseBytes = Networking.sendAndReceive(address, port, echoRequestBytes);
+                byte[] echoResponseBytes = Networking.OLD_sendAndReceive(address, port, echoRequestBytes);
+
+                Toolbox.logBytes(echoResponseBytes);
                 //TODO!+ Interpret the response bytes...
                 //TODO!+ After the Echo Request is processed, RELEASE the DICOM Association.
             } catch (IOException exc) {

@@ -38,23 +38,25 @@ public class Associator {
         // Send the A-Associate-RQ to the server.
         byte[] requestBytes = Converter.listToArray(AAssociateRQ);
         try {
-            byte[] responseBytes = Networking.sendAndReceive(host, port, requestBytes);
+            Log.i(TAG, "A-Associate-RQ: About to send bytes to server.");
+            byte[] responseBytes = Networking.sendAndReceiveAssociation(host, port, requestBytes);
+            Log.i(TAG, "A-Associate-RQ: Bytes sent to server, and result received.");
             return interpretAssociationResponse(responseBytes);
         }
         catch (SocketException exc) {
             //TODO!~ more end-user friendly error message
             Log.e(TAG, exc.toString());
-            return new NetworkingFailure(NetworkingFailure.Status.Failure, "Socket Exception while trying to receive server response.", null);
+            return new NetworkingFailure("Socket Exception while trying to receive server response.", null);
         }
         catch (UnknownHostException exc) {
             //TODO!~ more end-user friendly error message
             Log.e(TAG, exc.toString());
-            return new NetworkingFailure(NetworkingFailure.Status.Failure, "Unknown host Exception while trying to receive server response.", null);
+            return new NetworkingFailure("Unknown host Exception while trying to receive server response.", null);
         }
         catch (IOException exc) {
             //TODO!~ more end-user friendly error message
             Log.e(TAG, exc.toString());
-            return new NetworkingFailure(NetworkingFailure.Status.Failure, "I/O Exception while trying to receive server response.", null);
+            return new NetworkingFailure("I/O Exception while trying to receive server response.", null);
         }
     }
 
