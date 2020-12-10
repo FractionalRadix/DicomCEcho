@@ -28,7 +28,7 @@ public class Repository {
         }
     }
 
-    public void sendEchoRequest(String host, int port, EchoRequestCallback callback) {
+    public void performEcho(String host, int port, EchoRequestCallback callback) {
         Log.d(TAG, "In Repository.sendEchoRequest(host, port, callback).");
         Log.d(TAG, "host=="+host+", port=="+port);
         Log.d(TAG,  "callback=="+callback);
@@ -37,7 +37,7 @@ public class Repository {
                     @Override
                     public void run() {
                         Log.d(TAG, "In Executor.run() to send DICOM C-ECHO request.");
-                        DicomEchoRequest.sendEchoRequest(host, port, callback);
+                        DicomEcho.performEcho(host, port, callback);
                     }
                 }
         );

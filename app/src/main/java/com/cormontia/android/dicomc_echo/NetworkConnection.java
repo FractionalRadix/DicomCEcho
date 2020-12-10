@@ -7,17 +7,37 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.Socket;
+import java.net.SocketException;
+import java.net.UnknownHostException;
 import java.util.ArrayList;
 import java.util.List;
 
-public class Networking {
+public class NetworkConnection {
     private static final String TAG = "Networking";
 
-    public static byte[] sendAndReceiveAssociation(String host, int port, byte[] message) throws IOException {
-        //TODO!+ Assert that message != null. (Same about host, actually...)
+    private Socket socket;
 
-        Socket socket = new Socket(host, port);
-        socket.setSoTimeout(15000); // Timeout in milliseconds.
+    NetworkConnection(String host, int port) throws IOException {
+        try {
+            socket = new Socket(host, port);
+            socket.setSoTimeout(15000); // Timeout in milliseconds.
+        } catch (SocketException exc) {
+            //TODO!+ handle the case that host==null
+            Log.e(TAG, "Socket exception while trying to create connection to ("+host+", "+port+").");
+            throw exc;
+        } catch (UnknownHostException exc) {
+            //TODO!+ handle the case that host==null
+            Log.e(TAG, "Unknown host: "  + host);
+            throw exc;
+        } catch (IOException exc) {
+            //TODO!+ handle the case that host==null
+            Log.e(TAG, "I/O Exception while trying to create connection to ("+host+", "+port+")");
+            throw exc;
+        }
+    }
+
+    public byte[] sendAndReceiveAssociation(byte[] message) throws IOException {
+        //TODO!+ Assert that message != null.
 
         // Try-with-resources requires API level 19, currently supported minimum is 14.
         OutputStream outputStream = new BufferedOutputStream(socket.getOutputStream());
@@ -54,19 +74,19 @@ public class Networking {
         res[3] = (byte) b4;
         res[4] = (byte) b5;
         res[5] = (byte) b6;
-        for (int i = 0; i < len; i++) {
-            //TODO!+ Handle the case that the server returns -1...
-            res[i + 6] = (byte) inputStream.read();
-        }
+
+        int inputResult = inputStream.read(res, 6, len);
+        //TOOD!+ Error handling when inputResult == =1.
+        Toolbox.logBytes(res);
 
         return res;
     }
 
-    public static byte[] OLD_sendAndReceive(String host, int port, byte[] message) throws IOException {
-        //TODO!+ Assert that message != null. (Same about host, actually...)
-
-        Socket socket = new Socket(host, port);
-        socket.setSoTimeout(15000); // Timeout in milliseconds.
+    //TODO!~ Make this code specific for sending and receiving a DICOM C-Echo.
+    //  Parameterize it with the Socket to be used, not with host/port.
+    //  Also parameterize it with the Transfer Syntax for the connection.
+    public byte[] sendEchoRequestBytes(byte[] message) throws IOException {
+        //TODO!+ Assert that message != null.
 
         // Try-with-resources requires API level 19, currently supported minimum is 14.
         OutputStream outputStream = new BufferedOutputStream(socket.getOutputStream());
@@ -92,7 +112,9 @@ public class Networking {
         int ch;
         Log.i(TAG, "Entering while loop...");
         do{
+            Log.i(TAG, "NetworkConnection.sendEchoRequest(...): about to read from InputStream."); //TODO!- for debugging
             ch = inputStream.read();
+            Log.i(TAG, "NetworkConnection.sendEchoRequest(...): have read from InputStream: " + ch); //TODO!- for debugging
             if ( ch == -1)
                 break;
 

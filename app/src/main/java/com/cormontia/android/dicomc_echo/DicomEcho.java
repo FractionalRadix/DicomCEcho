@@ -1,11 +1,13 @@
 package com.cormontia.android.dicomc_echo;
 
+import android.net.Network;
 import android.util.Log;
 
 import java.io.IOException;
+import java.net.Socket;
 import java.util.List;
 
-class DicomEchoRequest {
+class DicomEcho {
 
     private static final String TAG = "DICOM C-ECHO";
 
@@ -15,7 +17,7 @@ class DicomEchoRequest {
      * @param address Address of the DICOM C-ECHO server (not including port number).
      * @param port    Port of the DICOM C-ECHO server.
      */
-    static void sendEchoRequest(String address, int port, EchoRequestCallback callback) {
+    static void performEcho(String address, int port, EchoRequestCallback callback) {
 
         Log.d(TAG, "Entered method sendEchoRequest(URL)");
         Log.d(TAG, "address==" + address);
@@ -26,8 +28,14 @@ class DicomEchoRequest {
         String calledAETitle = "ECHOSCP";  //TODO!~ Get this from user input.
         PresentationContext presentationContext = Associator.presentationContextForEcho();
 
+        NetworkConnection networkConnection = null;
+        try {
+            networkConnection = new NetworkConnection(address, port);
+        } catch (IOException exc)
+        {}
+
         Log.i(TAG, "Opening DICOM Association.");
-        DicomAssociationRequestResult res = Associator.openDicomAssociation(callingAETitle, calledAETitle, address, port, presentationContext);
+        DicomAssociationRequestResult res = Associator.openDicomAssociation(networkConnection, callingAETitle, calledAETitle, presentationContext);
         Log.i(TAG, "Completed attempt to open DICOM Association.");
         if (res instanceof NetworkingFailure) {
             callback.onComplete((NetworkingFailure) res);
@@ -39,11 +47,11 @@ class DicomEchoRequest {
             //TODO!+
         } else if (res instanceof DicomAssociation) {
             Log.i(TAG, "DICOM Association successful!");
-            //TODO!+
+
             List<DicomElement> echoRequest = RequestFactory.createEchoRequest(); //TODO?~ Should this be parameterized with the DICOM Assocation, or at least its Transfer Syntax?
             byte[] echoRequestBytes = Converter.binaryRepresentation(echoRequest);
             try {
-                byte[] echoResponseBytes = Networking.OLD_sendAndReceive(address, port, echoRequestBytes);
+                byte[] echoResponseBytes = networkConnection.sendEchoRequestBytes(echoRequestBytes);
 
                 Toolbox.logBytes(echoResponseBytes);
                 //TODO!+ Interpret the response bytes...

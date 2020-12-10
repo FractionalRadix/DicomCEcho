@@ -1,5 +1,7 @@
 package com.cormontia.android.dicomc_echo;
 
+import java.net.Socket;
+
 /**
  * Abstract base class for all possible results of a DICOM Association Request.
  * This includes the standard DICOM responses (A-Associate-AC, A-Associate-RJ, and A-Abort).

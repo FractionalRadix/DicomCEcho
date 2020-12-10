@@ -2,6 +2,8 @@ package com.cormontia.android.dicomc_echo;
 
 import java.util.List;
 
+//TODO!+ In general, determine if we store Dicom Elements in Little Endian or Big Endian internally.
+
 public class DicomElement
 {
     private DicomTag dicomTag;

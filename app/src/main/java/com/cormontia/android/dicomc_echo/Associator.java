@@ -27,7 +27,7 @@ public class Associator {
         return new PresentationContext(presentationContextID, abstractSyntax, transferSyntax1 /*, transferSyntax2 */);
     }
 
-    static DicomAssociationRequestResult openDicomAssociation(String callingAETitle, String calledAETitle, String host, int port, PresentationContext... presentationContexts) {
+    static DicomAssociationRequestResult openDicomAssociation(NetworkConnection networkConnection, String callingAETitle, String calledAETitle, PresentationContext... presentationContexts) {
 
         //TODO!+ Add a field to the Android Layout XML where the user can optionally specify a "Called AE" name.
         // ...because some DICOM hosts use a whitelist that only checks for the AE Title...
@@ -39,7 +39,7 @@ public class Associator {
         byte[] requestBytes = Converter.listToArray(AAssociateRQ);
         try {
             Log.i(TAG, "A-Associate-RQ: About to send bytes to server.");
-            byte[] responseBytes = Networking.sendAndReceiveAssociation(host, port, requestBytes);
+            byte[] responseBytes = networkConnection.sendAndReceiveAssociation(requestBytes);
             Log.i(TAG, "A-Associate-RQ: Bytes sent to server, and result received.");
             return interpretAssociationResponse(responseBytes);
         }
@@ -81,18 +81,18 @@ public class Associator {
 
 
                 Log.i(TAG, "A-Associate-AC. Bytes: "+lenHighestByte + ", " + lenSecondHighestByte + ", " + lenThirdHighestByte + ", " + lenLowestByte);
-                int len = lenHighestByte + lenSecondHighestByte + lenThirdHighestByte + lenLowestByte;
+                int len = lenHighestByte | lenSecondHighestByte | lenThirdHighestByte | lenLowestByte;
                 Log.i(TAG, "Total length: " + len);
 
                 //TODO!+ Verify that the bytes.length == 6 + len
 
-                int protocolVersion = (((int) bytes[6]) << 8) + ((int) bytes[7]);
+                int protocolVersion = (((int) bytes[6]) << 8) | ((int) bytes[7]);
 
                 // Bytes 8 and 9 should be set to 0.
                 // Bytes 10-25 are the Called AE Title, but "should not be tested".
                 StringBuffer calledAETitle = new StringBuffer("");
                 for (int i = 0; i < 16; i++) {
-                    calledAETitle.append(bytes[i+10]);
+                    calledAETitle.append((char) (bytes[i+10]));
                 }
                 //TODO!+ Make sure that AE Titles cannot begin with whitespace... if they can, I need to only trim the TRAILING characteres.
                 String strCalledAETitle = calledAETitle.toString().trim();
@@ -102,7 +102,7 @@ public class Associator {
                 // Bytes 26-41
                 StringBuffer callingAETitle = new StringBuffer("");
                 for (int i = 0; i < 16; i++) {
-                    callingAETitle.append(bytes[i+26]);
+                    callingAETitle.append((char) (bytes[i+26]));
                 }
                 Log.i(TAG, "Calling AE Title: " + callingAETitle);
                 String strCallingAETitle = callingAETitle.toString().trim();

@@ -38,6 +38,6 @@ public class MainViewModel extends ViewModel {
             }
         };
 
-        repository.sendEchoRequest(host, port, callback);
+        repository.performEcho(host, port, callback);
     }
 }
