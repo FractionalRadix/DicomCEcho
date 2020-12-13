@@ -1,11 +1,16 @@
 package com.cormontia.android.dicomc_echo;
 
+import android.util.Log;
+
+import java.util.Arrays;
 import java.util.List;
 
 //TODO!+ In general, determine if we store Dicom Elements in Little Endian or Big Endian internally.
 
 public class DicomElement
 {
+    private static final String TAG = "DICOMElement";
+
     private DicomTag dicomTag;
     private DicomVR.VR valueRepresentation; //Null for implicit?
     private byte[] contents;
@@ -21,28 +26,8 @@ public class DicomElement
         System.arraycopy(contents, 0, this.contents, 0, contents.length);
     }
 
-    //TODO!~ Move to a class for generic helper functions
-    /**
-     * Convert a List&lt;Byte&gt; to an array of byte.
-     * PRE: None of the elements in the list is <code>null</code>.
-     * @param bytes A list of zero or more Byte instances, to be converted into an array of byte.
-     * @return An array of bytes, containing the same bytes as the input list, with the ordering preserved.
-     */
-    private static byte[] byteListToByteArray( List<Byte> bytes )
-    {
-        //TODO!+ Handle the NullReferenceException that you should get if one or more elements of the input array are NULL.
-        byte[] res = new byte[ bytes.size( ) ];
-        int i = 0;
-        for ( Byte currentByte : bytes )
-        {
-            res[ i ] = currentByte;
-            i++;
-        }
-        return res;
-    }
-
+    //TODO?-
     // Assumes the contents is already in the right endian-ness.
-
     byte[] littleEndianRepresentation( )
     {
         // Length of the resulting Dicom Element:
@@ -57,12 +42,26 @@ public class DicomElement
         byte[] lengthBytes = EndianConverter.littleEndian( (int) ( contents.length /* + 4 when using Explicit VR ? */ ) ) ;
         byte[] contentBytes = this.contents;
 
-        return ( ByteArrayHelper.appendByteArrays( groupBytes, elementBytes, lengthBytes, contentBytes ) );
+        Log.i(TAG, "Lengths of DICOM Element components: " + groupBytes.length + ", " + elementBytes.length + ", " + lengthBytes.length + ", " + contentBytes.length );
+        byte[] res = ByteArrayHelper.appendByteArrays( groupBytes, elementBytes, lengthBytes, contentBytes );
+        Log.i(TAG, "Length of DICOM Element components combined: " + res.length);
+        return res;
     }
 
+    public String humanReadableForm( ) {
 
+        String tagString = String.format("(%04X,%04X)",dicomTag.getGroup(),dicomTag.getElement());
+        //String vrString = DicomVR.VR.toString();
+        StringBuffer contentStr = new StringBuffer();
+        for (int i = 0; i < contents.length; i++) {
+            byte cur = contents[i];
+            if (cur >= 32 && cur <= 127) {
+                contentStr.append((char) cur);
+            } else {
+                contentStr.append('.');
+            }
+        }
 
-    //TODO!+
-
-
+        return tagString + " [" + contentStr + "]";
+    }
 }

@@ -74,10 +74,10 @@ public class Associator {
                 // Maybe this section should be in a separate method.
                 // Parse the Abstract Syntax and the selected Transfer Syntax.
                 //TODO!+ Verify that we have at least 6 bytes in the response.
-                int lenHighestByte       = ((int) bytes[2]) << 24;
-                int lenSecondHighestByte = ((int) bytes[3]) << 16;
-                int lenThirdHighestByte  = ((int) bytes[4]) <<  8;
-                int lenLowestByte        = (int) bytes[5];
+                int lenHighestByte       = (Byte.toUnsignedInt(bytes[2])) << 24;
+                int lenSecondHighestByte = (Byte.toUnsignedInt(bytes[3])) << 16;
+                int lenThirdHighestByte  = (Byte.toUnsignedInt(bytes[4])) <<  8;
+                int lenLowestByte        = (Byte.toUnsignedInt(bytes[5]));
 
 
                 Log.i(TAG, "A-Associate-AC. Bytes: "+lenHighestByte + ", " + lenSecondHighestByte + ", " + lenThirdHighestByte + ", " + lenLowestByte);
@@ -292,7 +292,7 @@ class UserInformation {
      *  "The value of (0) indicates that no maximum length is specified."
      *  Source: http://dicom.nema.org/medical/dicom/current/output/chtml/part08/chapter_D.html
      */
-    private int maxPDULength = 0;
+    private int maxPDULength = 16384;
     public void setMaxPDULength(int maxPDULength) { this.maxPDULength = maxPDULength; }
 
     private final String implementationClassUID = DicomUIDs.dicomApplicationContextName; //TODO?~ Is it acceptable to use this one here?

@@ -32,7 +32,10 @@ class DicomEcho {
         try {
             networkConnection = new NetworkConnection(address, port);
         } catch (IOException exc)
-        {}
+        {
+            Log.e(TAG, "Failed to establish network connection." + exc.getMessage());
+            //TODO!+
+        }
 
         Log.i(TAG, "Opening DICOM Association.");
         DicomAssociationRequestResult res = Associator.openDicomAssociation(networkConnection, callingAETitle, calledAETitle, presentationContext);
@@ -50,6 +53,7 @@ class DicomEcho {
 
             List<DicomElement> echoRequest = RequestFactory.createEchoRequest(); //TODO?~ Should this be parameterized with the DICOM Assocation, or at least its Transfer Syntax?
             byte[] echoRequestBytes = Converter.binaryRepresentation(echoRequest);
+
             try {
                 byte[] echoResponseBytes = networkConnection.sendEchoRequestBytes(echoRequestBytes);
 

@@ -1,8 +1,14 @@
 package com.cormontia.android.dicomc_echo;
 
+import android.util.Log;
+
+import java.util.ArrayList;
 import java.util.List;
 
 public class Converter {
+
+    private final static String TAG = "CONVERTER";
+
     /**
      * Calculates the binary representation of a list of DICOM elements.
      * In other words, given a list of elements, returns a byte array to represent these elements, in order.
@@ -11,12 +17,34 @@ public class Converter {
      */
     public static byte[] binaryRepresentation(List<DicomElement> elements)
     {
-        byte[][] byteRepresentations = new byte[elements.size()][];
+        List<byte[]> byteArrays = new ArrayList<>();
+        int totalLen = 0;
         for (int i = 0; i < elements.size(); i++)
         {
-            byteRepresentations[i] = elements.get(i).littleEndianRepresentation();
+            DicomElement elt = elements.get(i);
+            Log.i(TAG, elt.humanReadableForm()); //TODO!- FOR DEBUGGING
+            byte[] byteRepresentation = elt.littleEndianRepresentation();
+            Log.i(TAG, "LE representation of DICOM Element has " + byteRepresentation.length + " bytes.");
+
+            Toolbox.logBytes(byteRepresentation); //TODO!- FOR DEBUGGING
+            byteArrays.add(byteRepresentation);
+            totalLen += byteRepresentation.length;
         }
-        return ( ByteArrayHelper.appendByteArrays(byteRepresentations) );
+
+        //TODO!~ Extract to ByteArrayHelper
+        byte[] res = new byte[totalLen];
+        int idx = 0;
+        for (int i = 0; i < byteArrays.size(); i++) {
+            byte[] cur = byteArrays.get(i);
+            for (int j = 0; j < cur.length; j++) {
+                res[idx] = cur[j];
+                idx++;
+            }
+        }
+
+
+        //return ( ByteArrayHelper.appendByteArrays(byteRepresentations) );
+        return res;
     }
 
     /**
